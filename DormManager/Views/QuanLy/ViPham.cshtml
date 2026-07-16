@@ -1,0 +1,114 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Sinh viên vi phạm & mở khóa tài khoản";
+    DataTable ds = ViewBag.DsViPham;
+    DataTable lichSu = ViewBag.LichSu;
+}
+
+@*  Vi phạm + mở khóa | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        .vp-table thead th {
+            font-size: .78rem;
+            text-transform: uppercase;
+            color: #7a8580;
+            background: #fafbfa;
+        }
+
+        .vp-point {
+            font-weight: 700;
+            color: #dc3545;
+        }
+    </style>
+}
+
+<div class="alert alert-light border small">
+    <i class="bi bi-robot me-1 text-dm"></i>
+ Hệ thống tự động quét khi mở trang này (mô phỏng job định kỳ): hóa đơn quá hạn ≥ <b>TS3</b> ngày → khóa tài khoản;
+ quá hạn &gt; <b>TS4</b> ngày → ghi nhận vi phạm.
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-5">
+                <label class="form-label small mb-1">Tra cứu sinh viên</label>
+                <input type="text" name="tuKhoa" value="@Context.Request.Query["tuKhoa"]" class="form-control" placeholder="MSSV, họ tên..." />
+            </div>
+            <div class="col-12 col-md-2">
+                <button class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Tra cứu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header bg-white fw-semibold"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Danh sách sinh viên vi phạm / bị khóa tài khoản</div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 vp-table">
+            <thead><tr><th>MSSV</th><th>Họ tên</th><th>Khóa</th><th class="text-center">Điểm vi phạm</th><th>Tài khoản</th><th></th></tr></thead>
+            <tbody>
+                @if (ds.Rows.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-4">Không có sinh viên nào vi phạm 🎉</td></tr>
+                }
+                @foreach (DataRow r in ds.Rows)
+                {
+                    bool biKhoa = r["TrangThaiTK"].ToString() == "BiKhoa";
+                    <tr>
+                        <td>@r["MSSV"]</td>
+                        <td>@r["HoTen"]</td>
+                        <td>@r["KhoaHoc"]</td>
+                        <td class="text-center vp-point">@r["DiemViPham"]</td>
+                        <td>
+                            @if (biKhoa)
+                            {
+                                <span class="badge text-bg-danger"><i class="bi bi-lock-fill me-1"></i>Bị khóa</span>
+                            }
+                            else
+                            {
+
+                                <span class="badge text-bg-success">Hoạt động</span>
+                            }
+                        </td>
+                        <td>
+                            @if (biKhoa)
+                            {
+                                <form method="post" asp-action="MoKhoa" class="d-inline"
+                                      onsubmit="return confirm('Xác nhận mở khóa tài khoản này? Chỉ mở khi sinh viên đã hoàn tất nghĩa vụ tài chính.');">
+                                    <input type="hidden" name="maTK" value="@r["MaTK"]" />
+                                    <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-unlock me-1"></i>Mở khóa</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-white fw-semibold"><i class="bi bi-clock-history me-2"></i>Lịch sử ghi nhận vi phạm</div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 vp-table">
+            <thead><tr><th>#</th><th>Sinh viên</th><th>Lý do</th><th class="text-center">Điểm</th><th>Ngày ghi nhận</th></tr></thead>
+            <tbody>
+                @if (lichSu.Rows.Count == 0)
+                {
+                    <tr><td colspan="5" class="text-center text-muted py-4">Chưa có vi phạm nào được ghi nhận</td></tr>
+                }
+                @foreach (DataRow r in lichSu.Rows)
+                {
+                    <tr>
+                        <td>@r["MaVP"]</td>
+                        <td><div>@r["HoTen"]</div><div class="small text-muted">@r["MSSV"]</div></td>
+                        <td class="small">@r["LyDo"]</td>
+                        <td class="text-center vp-point">+@r["SoDiem"]</td>
+                        <td>@(Convert.ToDateTime(r["NgayGhiNhan"]).ToString("dd/MM/yyyy"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

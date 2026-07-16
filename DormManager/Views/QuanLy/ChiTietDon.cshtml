@@ -1,0 +1,87 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Xử lý đơn phản hồi, yêu cầu";
+    DataRow d = ViewBag.Don;
+}
+
+@* Sắp xếp ưu tiên + xử lý đơn | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        .don-content {
+            background: #f6f8f7;
+            border-radius: .6rem;
+            padding: 1rem 1.2rem;
+            white-space: pre-wrap;
+        }
+    </style>
+}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card p-4">
+            <h2 class="h5 fw-bold mb-1">@d["TieuDe"]</h2>
+            <div class="text-muted small mb-3">
+                @(d["LoaiDon"].ToString() == "PhanHoi" ? "Đơn phản hồi" : "Đơn đề xuất") #@d["MaDon"]
+                · Sinh viên: <b>@d["HoTen"]</b> (@d["MSSV"])
+                · @(Convert.ToDateTime(d["NgayTao"]).ToString("HH:mm dd/MM/yyyy"))
+            </div>
+            <div class="don-content small">@d["NoiDung"]</div>
+            @if (d["TenNV"] != DBNull.Value)
+            {
+                <div class="small text-muted mt-3"><i class="bi bi-person-badge me-1"></i>Người phụ trách: @d["TenNV"]</div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        @if (d["LoaiDon"].ToString() == "TraPhong" && d["TrangThai"].ToString() != "DaXuLy" && d["TrangThai"].ToString() != "TuChoi")
+        {
+            <div class="card p-4 mb-3 border-warning">
+                <h3 class="h6 fw-bold mb-2"><i class="bi bi-box-arrow-left me-2 text-warning"></i>Xác nhận trả phòng</h3>
+                <p class="small text-muted">Xác nhận sẽ giải phóng giường ngay lập tức và đóng đơn này thành "Đã xử lý". Hãy đối chiếu hiện trạng phòng trước khi xác nhận.</p>
+                <form method="post" asp-action="XacNhanTraPhong"
+                      onsubmit="return confirm('Xác nhận trả phòng? Giường sẽ được giải phóng ngay.');">
+                    <input type="hidden" name="maDon" value="@d["MaDon"]" />
+                    <button type="submit" class="btn btn-warning w-100"><i class="bi bi-check-lg me-1"></i>Xác nhận trả phòng</button>
+                </form>
+            </div>
+        }
+        <div class="card p-4">
+            <h3 class="h6 fw-bold mb-3"><i class="bi bi-gear me-2 text-dm"></i>Xử lý đơn (đổi ưu tiên / từ chối / phản hồi)</h3>
+            <form method="post" asp-action="XuLyDon">
+                <input type="hidden" name="maDon" value="@d["MaDon"]" />
+                <div class="mb-3">
+ <label class="form-label small">Mức độ ưu tiên</label>
+                    <select name="mucUuTien" class="form-select">
+                        <option value="Cao" selected="@(d["MucUuTien"].ToString() == "Cao")">Cao</option>
+                        <option value="TrungBinh" selected="@(d["MucUuTien"].ToString() == "TrungBinh")">Trung bình</option>
+                        <option value="Thap" selected="@(d["MucUuTien"].ToString() == "Thap")">Thấp</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Trạng thái xử lý</label>
+                    <select name="trangThai" class="form-select">
+                        <option value="ChoXuLy" selected="@(d["TrangThai"].ToString() == "ChoXuLy")">Chờ xử lý</option>
+                        <option value="DangXuLy" selected="@(d["TrangThai"].ToString() == "DangXuLy")">Đang xử lý</option>
+                        @if (d["LoaiDon"].ToString() != "TraPhong")
+                        {
+                            <option value="DaXuLy" selected="@(d["TrangThai"].ToString() == "DaXuLy")">Đã xử lý</option>
+                        }
+                        <option value="TuChoi" selected="@(d["TrangThai"].ToString() == "TuChoi")">Từ chối</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Phản hồi / hướng giải quyết</label>
+                    <textarea name="phanHoi" class="form-control" rows="4">@d["PhanHoi"]</textarea>
+                </div>
+                <div class="small text-muted mb-3">
+ <i class="bi bi-bell me-1"></i>Sau khi lưu, hệ thống sẽ tự động gửi thông báo đến sinh viên.
+                </div>
+                <div class="d-flex gap-2">
+                    <a asp-action="DonYeuCau" class="btn btn-outline-secondary w-50">Trở về</a>
+                    <button type="submit" class="btn btn-dm w-50">Lưu xử lý</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,12 @@
+/* ===== BM22/23/24 - Đơn phản hồi, yêu cầu - Quản lý (External CSS) ===== */
+.dyq-table thead th {
+    font-size: .76rem; text-transform: uppercase; letter-spacing: .04em;
+    color: #7a8580; background: #fafbfa; white-space: nowrap;
+}
+.dyq-table td { vertical-align: middle; }
+.row-urgent { background: #fff6f6; }
+.row-urgent td:first-child { border-left: 3px solid #dc3545; }
+
+@media (max-width: 767.98px) {
+    .dyq-table { font-size: .85rem; }
+}

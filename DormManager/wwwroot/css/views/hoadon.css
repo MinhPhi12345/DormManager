@@ -1,0 +1,14 @@
+/* ===== BM16/17 - Lịch sử hóa đơn (External CSS) ===== */
+.hd-card { border-top: 4px solid #f2a516; transition: transform .15s, box-shadow .15s; }
+.hd-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(20,40,35,.15); }
+.hd-card.hd-overdue { border-top-color: #dc3545; }
+.hd-card.hd-paid { border-top-color: #198754; }
+
+.hd-month { font-weight: 700; font-size: 1.05rem; }
+.hd-room { font-size: .85rem; color: #6c757d; }
+.hd-total {
+    margin: .7rem 0 .25rem;
+    font-size: 1.7rem; font-weight: 800; color: #0d5c4d;
+}
+.hd-total span { font-size: 1rem; font-weight: 500; }
+.hd-due { font-size: .84rem; color: #6c757d; }

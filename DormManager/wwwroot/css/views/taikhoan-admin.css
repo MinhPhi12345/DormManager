@@ -1,0 +1,14 @@
+/* ===== BM47-51 - Quản lý tài khoản QTV (External CSS) ===== */
+.tka-table thead th {
+    font-size: .76rem; text-transform: uppercase; letter-spacing: .04em;
+    color: #7a8580; background: #fafbfa; white-space: nowrap;
+}
+.tka-modal-head { background: linear-gradient(120deg, #0d5c4d, #12735f); color: #fff; }
+
+.tka-badge-sv  { background: #e2efe9; color: #0d5c4d; }
+.tka-badge-ql  { background: #e4eef5; color: #205a78; }
+.tka-badge-qtv { background: #fdf0da; color: #9a6a08; }
+
+@media (max-width: 767.98px) {
+    .tka-table { font-size: .84rem; }
+}

@@ -1,0 +1,105 @@
+﻿/* ===== Banner đợt đăng ký ===== */
+.dot-banner {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    border-radius: .7rem;
+    padding: .9rem 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.dot-banner-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    color: #fff;
+}
+
+.dot-banner-title {
+    font-weight: 700;
+    font-size: .95rem;
+}
+
+.dot-banner-sub {
+    font-size: .84rem;
+    margin-top: .15rem;
+}
+
+.dot-banner-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.dot-banner-mo {
+    background: #eaf6f1;
+    border: 1px solid #b7e0cf;
+}
+
+    .dot-banner-mo .dot-banner-icon {
+        background: #0d5c4d;
+    }
+
+    .dot-banner-mo .dot-banner-title {
+        color: #0d5c4d;
+    }
+
+    .dot-banner-mo .dot-banner-sub {
+        color: #46564f;
+    }
+
+.dot-banner-khongphuhop {
+    background: #fff8ec;
+    border: 1px solid #f2d9a6;
+}
+
+    .dot-banner-khongphuhop .dot-banner-icon {
+        background: #f2a516;
+    }
+
+    .dot-banner-khongphuhop .dot-banner-title {
+        color: #9a6a08;
+    }
+
+    .dot-banner-khongphuhop .dot-banner-sub {
+        color: #6b5a35;
+    }
+
+.dot-banner-dong {
+    background: #f4f4f4;
+    border: 1px solid #e0e0e0;
+}
+
+    .dot-banner-dong .dot-banner-icon {
+        background: #97a09b;
+    }
+
+    .dot-banner-dong .dot-banner-title {
+        color: #5c6660;
+    }
+
+    .dot-banner-dong .dot-banner-sub {
+        color: #7a8580;
+    }
+
+.dot-badge-uutien {
+    background: #f2a516;
+    color: #fff;
+    font-weight: 600;
+    font-size: .68rem;
+}
+
+@media (max-width: 575.98px) {
+    .dot-banner {
+        flex-wrap: wrap;
+    }
+
+    .dot-banner-btn {
+        width: 100%;
+        order: 3;
+    }
+}

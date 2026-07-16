@@ -1,0 +1,150 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Chi tiết hóa đơn";
+    DataRow h = ViewBag.HD;
+    DataTable gd = ViewBag.DsGiaoDich;
+    decimal kwh = Convert.ToDecimal(h["DienCuoiKy"]) - Convert.ToDecimal(h["DienDauKy"]);
+    decimal m3 = Convert.ToDecimal(h["NuocCuoiKy"]) - Convert.ToDecimal(h["NuocDauKy"]);
+    string tt = h["TrangThai"].ToString()!;
+}
+
+@* Chi tiết hóa đơn & thanh toán | View phức tạp -> style External *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/hoadon-chitiet.css" />
+}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="invoice card">
+            <div class="invoice-head">
+                <div>
+                    <div class="invoice-title">HÓA ĐƠN #@h["MaHD"]</div>
+                    <div class="small opacity-75">Tháng @h["Thang"] · Phòng @h["MaPhong"] (@h["TenToa"])</div>
+                </div>
+                @switch (tt)
+                {
+                    case "ChoThanhToan":
+                        <span class="badge text-bg-warning">Chờ thanh toán</span>
+                        ; break;
+                    case "QuaHan":
+
+                        <span class="badge text-bg-danger">Quá hạn</span>
+                        ; break;
+                    case "DaThanhToan":
+
+                        <span class="badge text-bg-success">Đã thanh toán</span>
+                        ; break;
+                    default:
+
+                        <span class="badge text-bg-secondary">Nháp</span>
+                        ; break;
+                }
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table invoice-table align-middle">
+                        <thead>
+                            <tr><th>Khoản mục</th><th class="text-center">Chỉ số / SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><i class="bi bi-house me-2 text-dm"></i>Tiền phòng (kèm phí dịch vụ)</td>
+                                <td class="text-center">1 tháng</td>
+                                <td class="text-end">—</td>
+                                <td class="text-end">@(Convert.ToDecimal(h["TienPhong"]).ToString("N0"))đ</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-lightning-charge me-2 text-warning"></i>Tiền điện
+                                    <div class="idx">@h["DienDauKy"] → @h["DienCuoiKy"]</div>
+                                </td>
+                                <td class="text-center">@kwh.ToString("N1") kWh</td>
+                                <td class="text-end">@(Convert.ToDecimal(h["GiaDien"]).ToString("N0"))đ</td>
+                                <td class="text-end">@(Convert.ToDecimal(h["TienDien"]).ToString("N0"))đ</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="bi bi-droplet me-2 text-info"></i>Tiền nước
+                                    <div class="idx">@h["NuocDauKy"] → @h["NuocCuoiKy"]</div>
+                                </td>
+                                <td class="text-center">@m3.ToString("N1") m³</td>
+                                <td class="text-end">@(Convert.ToDecimal(h["GiaNuoc"]).ToString("N0"))đ</td>
+                                <td class="text-end">@(Convert.ToDecimal(h["TienNuoc"]).ToString("N0"))đ</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="invoice-total">
+ <td colspan="3" class="text-end fw-bold">TỔNG TIỀN</td>
+                                <td class="text-end fw-bold">@(Convert.ToDecimal(h["TongTien"]).ToString("N0"))đ</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="small text-muted">
+                    <i class="bi bi-calendar-event me-1"></i>Hạn thanh toán:
+                    <b>@(Convert.ToDateTime(h["HanThanhToan"]).ToString("dd/MM/yyyy"))</b>
+                    @if (h["NgayPhatHanh"] != DBNull.Value)
+                    {
+                        <span> · Phát hành: @(Convert.ToDateTime(h["NgayPhatHanh"]).ToString("dd/MM/yyyy"))</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <a asp-action="HoaDon" class="btn btn-outline-secondary mt-3"><i class="bi bi-arrow-left me-1"></i>Trở về danh sách</a>
+    </div>
+
+    <div class="col-lg-5">
+        @if (tt is "ChoThanhToan" or "QuaHan")
+        {
+            <div class="card pay-card">
+                <div class="card-body">
+                    <h3 class="h6 fw-bold mb-3"><i class="bi bi-credit-card me-2 text-dm"></i>Thanh toán trực tuyến</h3>
+                    <form method="post" asp-action="ThanhToan">
+                        <input type="hidden" name="maHD" value="@h["MaHD"]" />
+                        <div class="pay-methods mb-3">
+                            <label class="pay-method">
+                                <input type="radio" name="phuongThuc" value="VNPay" checked />
+                                <span class="pay-method-box"><i class="bi bi-qr-code"></i> VNPay</span>
+                            </label>
+                            <label class="pay-method">
+                                <input type="radio" name="phuongThuc" value="MoMo" />
+                                <span class="pay-method-box"><i class="bi bi-wallet2"></i> MoMo</span>
+                            </label>
+                            <label class="pay-method">
+                                <input type="radio" name="phuongThuc" value="NganHang" />
+                                <span class="pay-method-box"><i class="bi bi-bank"></i> Ngân hàng</span>
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-dm w-100 py-2">
+                            Thanh toán @(Convert.ToDecimal(h["TongTien"]).ToString("N0"))đ
+                        </button>
+ <div class="small text-muted mt-2 text-center">(Mô phỏng cổng thanh toán trực tuyến )</div>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <div class="card mt-3">
+            <div class="card-header bg-white fw-semibold">Lịch sử giao dịch</div>
+            <ul class="list-group list-group-flush">
+                @if (gd.Rows.Count == 0)
+                {
+                    <li class="list-group-item small text-muted">Chưa có giao dịch nào</li>
+                }
+                @foreach (DataRow g in gd.Rows)
+                {
+                    <li class="list-group-item small">
+                        <div class="d-flex justify-content-between">
+                            <span><b>@g["PhuongThuc"]</b> · @(Convert.ToDateTime(g["ThoiGian"]).ToString("HH:mm dd/MM/yyyy"))</span>
+                            <span class="@(g["KetQua"].ToString() == "ThanhCong" ? "text-success" : "text-danger") fw-semibold">
+                                @(g["KetQua"].ToString() == "ThanhCong" ? "Thành công" : "Thất bại")
+                            </span>
+                        </div>
+                        <div class="text-muted">Mã GD: @g["MaGDCong"] · @(Convert.ToDecimal(g["SoTien"]).ToString("N0"))đ</div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>

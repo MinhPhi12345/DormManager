@@ -1,0 +1,95 @@
+@using System.Data
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Thống kê tổng quan hệ thống";
+    DataTable doanhThu = ViewBag.DoanhThu;
+    DataTable sanLuong = ViewBag.SanLuong;
+    DataTable donTT = ViewBag.DonTheoTT;
+
+    var dtLabels = JsonSerializer.Serialize(doanhThu.Rows.Cast<DataRow>().Select(r => r["Thang"].ToString()));
+    var dtValues = JsonSerializer.Serialize(doanhThu.Rows.Cast<DataRow>().Select(r => Convert.ToDecimal(r["TongTien"])));
+    var slLabels = JsonSerializer.Serialize(sanLuong.Rows.Cast<DataRow>().Select(r => r["Thang"].ToString()));
+    var slKwh = JsonSerializer.Serialize(sanLuong.Rows.Cast<DataRow>().Select(r => Convert.ToDecimal(r["Kwh"])));
+    var slM3 = JsonSerializer.Serialize(sanLuong.Rows.Cast<DataRow>().Select(r => Convert.ToDecimal(r["M3"])));
+    var donLabels = JsonSerializer.Serialize(donTT.Rows.Cast<DataRow>().Select(r =>
+        r["TrangThai"].ToString() switch { "ChoXuLy" => "Chờ xử lý", "DangXuLy" => "Đang xử lý", "DaXuLy" => "Đã xử lý", _ => "Từ chối" }));
+    var donValues = JsonSerializer.Serialize(donTT.Rows.Cast<DataRow>().Select(r => Convert.ToInt32(r["SoLuong"])));
+}
+
+@* Thống kê tổng quan | View phức tạp -> style External + Chart.js *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/thongke.css" />
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-1"><i class="bi bi-door-open"></i></span><div class="tk-num">@ViewBag.TongPhong</div><div class="tk-label">Tổng số phòng</div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-2"><i class="bi bi-people"></i></span><div class="tk-num">@ViewBag.SVDangO</div><div class="tk-label">SV đang ở</div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-3"><i class="bi bi-columns-gap"></i></span><div class="tk-num">@ViewBag.GiuongTrong</div><div class="tk-label">Giường trống</div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-4"><i class="bi bi-receipt"></i></span><div class="tk-num">@ViewBag.HDChuaTT</div><div class="tk-label">HĐ chưa thanh toán</div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-5"><i class="bi bi-inboxes"></i></span><div class="tk-num">@ViewBag.DonChoXuLy</div><div class="tk-label">Đơn chờ xử lý</div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-6"><i class="bi bi-cash-stack"></i></span><div class="tk-num">@(Convert.ToDecimal(ViewBag.TongThu).ToString("N0"))đ</div><div class="tk-label">Tổng thu</div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card p-3 h-100">
+            <h3 class="tk-chart-title"><i class="bi bi-graph-up-arrow me-2 text-dm"></i>Doanh thu thanh toán theo tháng</h3>
+            <canvas id="chartDoanhThu" height="220"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-3 h-100">
+            <h3 class="tk-chart-title"><i class="bi bi-pie-chart me-2 text-dm"></i>Đơn yêu cầu theo trạng thái</h3>
+            <canvas id="chartDon" height="220"></canvas>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card p-3">
+            <h3 class="tk-chart-title"><i class="bi bi-bar-chart me-2 text-dm"></i>Sản lượng điện / nước tiêu thụ theo kỳ</h3>
+            <canvas id="chartSanLuong" height="110"></canvas>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script>
+        const mau = { xanh: '#0d5c4d', vang: '#f2a516', xanhNhat: '#2a7f8f', xam: '#97a09b', do: '#dc3545', tim: '#7161ba' };
+
+        new Chart(document.getElementById('chartDoanhThu'), {
+            type: 'bar',
+            data: {
+                labels: @Html.Raw(dtLabels),
+                datasets: [{
+                    label: 'Doanh thu (đ)',
+                    data: @Html.Raw(dtValues),
+                    backgroundColor: mau.xanh, borderRadius: 6
+                }]
+            },
+            options: { plugins: { legend: { display: false } },
+                scales: { y: { ticks: { callback: v => v.toLocaleString('vi') + 'đ' } } } }
+        });
+
+        new Chart(document.getElementById('chartDon'), {
+            type: 'doughnut',
+            data: {
+                labels: @Html.Raw(donLabels),
+                datasets: [{ data: @Html.Raw(donValues),
+                    backgroundColor: [mau.xam, mau.xanhNhat, mau.xanh, mau.do] }]
+            },
+            options: { plugins: { legend: { position: 'bottom' } } }
+        });
+
+        new Chart(document.getElementById('chartSanLuong'), {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(slLabels),
+                datasets: [
+                    { label: 'Điện (kWh)', data: @Html.Raw(slKwh), borderColor: mau.vang, backgroundColor: mau.vang, tension: .3 },
+                    { label: 'Nước (m³)', data: @Html.Raw(slM3), borderColor: mau.xanhNhat, backgroundColor: mau.xanhNhat, tension: .3 }
+                ]
+            },
+            options: { plugins: { legend: { position: 'bottom' } } }
+        });
+    </script>
+}

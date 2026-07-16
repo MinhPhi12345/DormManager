@@ -1,0 +1,112 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Nhập chỉ số điện, nước";
+    DataTable ds = ViewBag.DsPhong;
+    string thang = ViewBag.Thang;
+}
+
+@* Nhập chỉ số điện nước | View phức tạp -> style External *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/chiso.css" />
+}
+
+<div class="card mb-3">
+    <div class="card-body d-flex flex-wrap align-items-end gap-2">
+        <form method="get" class="d-flex align-items-end gap-2 flex-wrap">
+            <div>
+                <label class="form-label small mb-1">Kỳ ghi chỉ số (MM/yyyy)</label>
+                <input type="text" name="thang" value="@thang" class="form-control" style="max-width:160px" placeholder="06/2026" />
+            </div>
+            <button class="btn btn-dm"><i class="bi bi-arrow-repeat me-1"></i>Xem kỳ</button>
+        </form>
+        <div class="ms-auto small text-muted">
+ <i class="bi bi-info-circle me-1"></i>Chỉ hiển thị phòng đang có sinh viên ở. Chỉ số cuối kỳ ≥ đầu kỳ.
+        </div>
+    </div>
+</div>
+
+@if (ds.Rows.Count == 0)
+{
+    <div class="alert alert-secondary">Không có phòng nào đang có sinh viên ở.</div>
+}
+
+<div class="row g-3">
+    @foreach (DataRow r in ds.Rows)
+    {
+        bool daChot = r["TrangThai"] != DBNull.Value && r["TrangThai"].ToString() == "DaChot";
+        bool daNhap = r["MaChiSo"] != DBNull.Value;
+        string dienDau = daNhap ? Convert.ToDecimal(r["DienDauKy"]).ToString("0.#")
+        : r["DienKyTruoc"] != DBNull.Value ? Convert.ToDecimal(r["DienKyTruoc"]).ToString("0.#") : "0";
+        string nuocDau = daNhap ? Convert.ToDecimal(r["NuocDauKy"]).ToString("0.#")
+        : r["NuocKyTruoc"] != DBNull.Value ? Convert.ToDecimal(r["NuocKyTruoc"]).ToString("0.#") : "0";
+        string dienCuoi = daNhap ? Convert.ToDecimal(r["DienCuoiKy"]).ToString("0.#") : "";
+        string nuocCuoi = daNhap ? Convert.ToDecimal(r["NuocCuoiKy"]).ToString("0.#") : "";
+
+        <div class="col-12 col-lg-6 col-xxl-4">
+            <div class="cs-card card @(daChot ? "cs-locked" : daNhap ? "cs-done" : "")">
+                <div class="cs-head">
+                    <span class="cs-room"><i class="bi bi-door-open me-1"></i>@r["MaPhong"]</span>
+                    <span class="cs-people small">@r["SoNguoiO"] SV đang ở</span>
+                    @if (daChot)
+                    {
+                        <span class="badge text-bg-secondary"><i class="bi bi-lock-fill me-1"></i>Đã chốt</span>
+                    }
+                    else if (daNhap)
+                    {
+
+                        <span class="badge text-bg-success">Đã nhập</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge text-bg-warning">Chưa nhập</span>
+                    }
+                </div>
+                <div class="card-body pt-2">
+                    <form method="post" asp-action="LuuChiSo">
+                        <input type="hidden" name="maPhong" value="@r["MaPhong"]" />
+                        <input type="hidden" name="thang" value="@thang" />
+                        <div class="cs-grid">
+                            <div class="cs-meter">
+                                <div class="cs-meter-label"><i class="bi bi-lightning-charge-fill text-warning"></i> Điện (kWh)</div>
+                                <div class="cs-pair">
+                                    <div>
+                                        <label>Đầu kỳ</label>
+                                        <input type="number" step="0.1" min="0" name="dienDauKy" value="@dienDau" class="form-control form-control-sm" @(daChot ? "disabled" : "") required />
+                                    </div>
+                                    <div>
+                                        <label>Cuối kỳ</label>
+                                        <input type="number" step="0.1" min="0" name="dienCuoiKy" value="@dienCuoi" class="form-control form-control-sm" @(daChot ? "disabled" : "") required />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="cs-meter">
+                                <div class="cs-meter-label"><i class="bi bi-droplet-fill text-info"></i> Nước (m³)</div>
+                                <div class="cs-pair">
+                                    <div>
+                                        <label>Đầu kỳ</label>
+                                        <input type="number" step="0.1" min="0" name="nuocDauKy" value="@nuocDau" class="form-control form-control-sm" @(daChot ? "disabled" : "") required />
+                                    </div>
+                                    <div>
+                                        <label>Cuối kỳ</label>
+                                        <input type="number" step="0.1" min="0" name="nuocCuoiKy" value="@nuocCuoi" class="form-control form-control-sm" @(daChot ? "disabled" : "") required />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @if (!daChot)
+                        {
+                            <button type="submit" class="btn btn-sm btn-dm w-100 mt-3">
+                                <i class="bi bi-save me-1"></i>@(daNhap ? "Cập nhật chỉ số" : "Lưu chỉ số")
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="small text-muted text-center mt-3"><i class="bi bi-lock me-1"></i>Đã xuất hóa đơn - không thể chỉnh sửa</div>
+                        }
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>

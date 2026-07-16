@@ -1,0 +1,83 @@
+/* =====================================================================
+   SITE.CSS - CHỈ chứa khung sườn dùng chung (layout, sidebar, topbar).
+   Style riêng của từng view nằm ở:
+     - Inline <style> trong view (view đơn giản)
+     - wwwroot/css/views/*.css   (view phức tạp)
+   ===================================================================== */
+:root {
+    --dm-primary: #0d5c4d;
+    --dm-primary-dark: #084237;
+    --dm-accent: #f2a516;
+    --dm-sidebar-w: 260px;
+    --dm-bg: #f4f6f5;
+}
+
+body {
+    background: var(--dm-bg);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.app-wrapper { display: flex; min-height: 100vh; }
+
+/* ---------- Sidebar ---------- */
+.app-sidebar {
+    width: var(--dm-sidebar-w);
+    background: linear-gradient(180deg, var(--dm-primary-dark), var(--dm-primary));
+    color: #fff;
+    flex-shrink: 0;
+}
+.sidebar-brand {
+    display: flex; align-items: center; gap: .6rem;
+    font-size: 1.15rem; font-weight: 700; letter-spacing: .3px;
+    padding: 1.1rem 1.25rem; color: #fff;
+}
+.sidebar-brand .bi { color: var(--dm-accent); font-size: 1.4rem; }
+.nav-group-label {
+    padding: .9rem 1.25rem .35rem;
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .08em;
+    color: rgba(255,255,255,.55);
+}
+.nav-item-link {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .62rem 1.25rem;
+    color: rgba(255,255,255,.85); text-decoration: none;
+    font-size: .925rem;
+    border-left: 3px solid transparent;
+    transition: background .15s, border-color .15s;
+}
+.nav-item-link:hover { background: rgba(255,255,255,.08); color: #fff; }
+.nav-item-link.active {
+    background: rgba(255,255,255,.12);
+    border-left-color: var(--dm-accent);
+    color: #fff; font-weight: 600;
+}
+.sidebar-footer { border-top: 1px solid rgba(255,255,255,.12); padding: .4rem 0; }
+
+/* ---------- Main / topbar ---------- */
+.app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.app-topbar {
+    display: flex; align-items: center; gap: .9rem;
+    background: #fff; padding: .65rem 1.25rem;
+    border-bottom: 1px solid #e3e7e5;
+    position: sticky; top: 0; z-index: 100;
+}
+.topbar-title { font-size: 1.1rem; font-weight: 600; margin: 0; flex: 1; color: #223; }
+.topbar-user .btn { border: none; }
+.user-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--dm-primary); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.app-content { padding: 1.25rem; }
+
+/* ---------- Tiện ích chung ---------- */
+.card { border: none; box-shadow: 0 1px 3px rgba(20,40,35,.08); border-radius: .65rem; }
+.btn-dm { background: var(--dm-primary); color: #fff; }
+.btn-dm:hover { background: var(--dm-primary-dark); color: #fff; }
+.text-dm { color: var(--dm-primary); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 991.98px) {
+    .app-content { padding: .85rem; }
+    .topbar-title { font-size: 1rem; }
+}

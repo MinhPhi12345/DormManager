@@ -1,0 +1,98 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Cập nhật đơn giá điện, nước";
+    DataTable ds = ViewBag.DsDonGia;
+}
+
+@* Đơn giá điện nước | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        .dg-form {
+            max-width: 560px;
+        }
+
+        .dg-cap {
+            background: #fff8ec;
+            border: 1px solid #f2d9a6;
+            border-radius: .5rem;
+            padding: .6rem .9rem;
+            font-size: .85rem;
+        }
+
+        .dg-table thead th {
+            font-size: .78rem;
+            text-transform: uppercase;
+            color: #7a8580;
+            background: #fafbfa;
+        }
+    </style>
+}
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card p-4 dg-form">
+            <h2 class="h6 fw-bold mb-3"><i class="bi bi-lightning-charge me-2 text-warning"></i>Thiết lập biểu giá mới</h2>
+            <div class="dg-cap mb-3">
+                <i class="bi bi-shield-check me-1"></i>Trần giá theo quy định:
+                điện ≤ <b>@(Convert.ToDecimal(ViewBag.TS7).ToString("N0"))đ/kWh</b>,
+                nước ≤ <b>@(Convert.ToDecimal(ViewBag.TS8).ToString("N0"))đ/m³</b>.
+            </div>
+            <form method="post" asp-action="CapNhatDonGia">
+                <div class="mb-3">
+                    <label class="form-label small">Đơn giá điện (đ/kWh)</label>
+                    <input type="number" name="giaDien" class="form-control" min="1" step="100" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Đơn giá nước (đ/m³)</label>
+                    <input type="number" name="giaNuoc" class="form-control" min="1" step="500" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Phí dịch vụ cố định (đ/phòng/tháng)</label>
+                    <input type="number" name="phiDichVu" class="form-control" min="0" step="5000" value="0" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Ngày áp dụng</label>
+                    <input type="date" name="ngayApDung" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                </div>
+                <button type="submit" class="btn btn-dm w-100"
+                        onclick="return confirm('Áp dụng biểu giá mới? Biểu giá cũ sẽ hết hiệu lực và các hóa đơn sau này tính theo giá mới.');">
+                    Áp dụng biểu giá
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold">Lịch sử biểu giá</div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 dg-table">
+                    <thead><tr><th>#</th><th class="text-end">Giá điện</th><th class="text-end">Giá nước</th><th class="text-end">Phí DV</th><th>Ngày áp dụng</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                        @foreach (DataRow r in ds.Rows)
+                        {
+                            <tr>
+                                <td>@r["MaDonGia"]</td>
+                                <td class="text-end">@(Convert.ToDecimal(r["GiaDien"]).ToString("N0"))đ</td>
+                                <td class="text-end">@(Convert.ToDecimal(r["GiaNuoc"]).ToString("N0"))đ</td>
+                                <td class="text-end">@(Convert.ToDecimal(r["PhiDichVu"]).ToString("N0"))đ</td>
+                                <td>@(Convert.ToDateTime(r["NgayApDung"]).ToString("dd/MM/yyyy"))</td>
+                                <td>
+                                    @if (r["TrangThai"].ToString() == "HieuLuc")
+                                    {
+                                        <span class="badge text-bg-success">Hiệu lực</span>
+                                    }
+                                    else
+                                    {
+
+                                        <span class="badge text-bg-secondary">Hết hiệu lực</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
