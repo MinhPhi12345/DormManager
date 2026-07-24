@@ -1,3 +1,4 @@
+using DormManager.Data;
 using DormManager.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +12,15 @@ namespace DormManager.Controllers
         // ============ Danh sách + tra cứu + sắp xếp ưu tiên đơn ============
         public IActionResult DonYeuCau(string? tuKhoa, string? loai, string? trangThai, string? uuTien)
         {
-            ViewBag.DsDon = Db.QueryProc("sp_DsDon",
+            ViewBag.DsDon = Db.Query(@"SELECT d.MaDon, d.TieuDe, d.LoaiDon, d.MucUuTien, d.TrangThai, d.NgayTao,
+           sv.HoTen, sv.MSSV
+    FROM DONYEUCAU d JOIN SINHVIEN sv ON sv.MSSV = d.MSSV
+    WHERE (@TuKhoa IS NULL OR d.TieuDe LIKE '%' + @TuKhoa + '%' OR sv.HoTen LIKE '%' + @TuKhoa + '%' OR sv.MSSV LIKE '%' + @TuKhoa + '%')
+      AND (@LoaiDon IS NULL OR d.LoaiDon = @LoaiDon)
+      AND (@TrangThai IS NULL OR d.TrangThai = @TrangThai)
+      AND (@UuTien IS NULL OR d.MucUuTien = @UuTien)
+    ORDER BY CASE d.MucUuTien WHEN 'Cao' THEN 0 WHEN 'TrungBinh' THEN 1 ELSE 2 END,
+             CASE d.TrangThai WHEN 'ChoXuLy' THEN 0 WHEN 'DangXuLy' THEN 1 ELSE 2 END, d.NgayTao DESC;",
                 Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()),
                 Db.P("@LoaiDon", string.IsNullOrWhiteSpace(loai) ? null : loai),
                 Db.P("@TrangThai", string.IsNullOrWhiteSpace(trangThai) ? null : trangThai),
@@ -22,7 +31,10 @@ namespace DormManager.Controllers
         // Chi tiết + xử lý đơn (đổi trạng thái, ưu tiên, phản hồi → gửi thông báo)
         public IActionResult ChiTietDon(int id)
         {
-            var dt = Db.QueryProc("sp_ChiTietDon", Db.P("@MaDon", id));
+            var dt = Db.Query(@"SELECT d.*, sv.HoTen, q.HoTen AS TenNV FROM DONYEUCAU d
+    JOIN SINHVIEN sv ON sv.MSSV = d.MSSV
+    LEFT JOIN QUANLY q ON q.MaNV = d.MaNV
+    WHERE d.MaDon = @MaDon;", Db.P("@MaDon", id));
             if (dt.Rows.Count == 0) return RedirectToAction("DonYeuCau");
             ViewBag.Don = dt.Rows[0];
             return View();
@@ -31,9 +43,8 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult XuLyDon(int maDon, string mucUuTien, string trangThai, string? phanHoi)
         {
-            Db.ExecProc("sp_XuLyDon",
-                Db.P("@MaDon", maDon), Db.P("@MucUuTien", mucUuTien), Db.P("@TrangThai", trangThai),
-                Db.P("@PhanHoi", phanHoi), Db.P("@MaNV", MaNV));
+            // sp_XuLyDon: transaction đổi trạng thái/ưu tiên + gửi thông báo
+            QuanLyRepo.XuLyDon(maDon, mucUuTien, trangThai, phanHoi, MaNV);
             TempData["ThanhCong"] = "Cập nhật đơn thành công. Hệ thống đã gửi thông báo tới sinh viên.";
             return RedirectToAction("ChiTietDon", new { id = maDon });
         }
@@ -41,7 +52,15 @@ namespace DormManager.Controllers
         // ============ Danh sách + tra cứu + chi tiết đơn đăng ký ============
         public IActionResult DonDangKy(string? tuKhoa, string? trangThai)
         {
-            ViewBag.DsPhieu = Db.QueryProc("sp_DsPhieu",
+            ViewBag.DsPhieu = Db.Query(@"SELECT pd.MaPhieu, pd.NgayDangKy, pd.NgayBatDau, pd.NgayKetThuc, pd.TrangThai,
+           sv.MSSV, sv.HoTen, g.MaPhong, pd.MaGiuong, d.TenDot
+    FROM PHIEUDANGKY pd
+    JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
+    JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
+    JOIN DOTDANGKY d ON d.MaDot = pd.MaDot
+    WHERE (@TuKhoa IS NULL OR sv.MSSV LIKE '%' + @TuKhoa + '%' OR sv.HoTen LIKE '%' + @TuKhoa + '%' OR g.MaPhong LIKE '%' + @TuKhoa + '%')
+      AND (@TrangThai IS NULL OR pd.TrangThai = @TrangThai)
+    ORDER BY CASE pd.TrangThai WHEN 'ChoDoiChieu' THEN 0 ELSE 1 END, pd.NgayDangKy DESC;",
                 Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()),
                 Db.P("@TrangThai", string.IsNullOrWhiteSpace(trangThai) ? null : trangThai));
             return View();
@@ -49,7 +68,15 @@ namespace DormManager.Controllers
 
         public IActionResult ChiTietDangKy(int id)
         {
-            var dt = Db.QueryProc("sp_ChiTietPhieu", Db.P("@MaPhieu", id));
+            var dt = Db.Query(@"SELECT pd.*, sv.HoTen, sv.KhoaHoc, sv.GioiTinh, sv.DoiTuong, sv.DiemViPham,
+           g.MaPhong, p.GiaPhong, p.LoaiPhong, t.TenToa, d.TenDot, d.HocKy
+    FROM PHIEUDANGKY pd
+    JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
+    JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
+    JOIN PHONG p ON p.MaPhong = g.MaPhong
+    JOIN TOANHA t ON t.MaToa = p.MaToa
+    JOIN DOTDANGKY d ON d.MaDot = pd.MaDot
+    WHERE pd.MaPhieu = @MaPhieu;", Db.P("@MaPhieu", id));
             if (dt.Rows.Count == 0) return RedirectToAction("DonDangKy");
             ViewBag.Phieu = dt.Rows[0];
             return View();
@@ -59,7 +86,7 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult XacNhanNhanPhong(int maPhieu)
         {
-            Db.ExecProc("sp_XacNhanNhanPhong", Db.P("@MaPhieu", maPhieu));
+            QuanLyRepo.XacNhanNhanPhong(maPhieu);   // sp_XacNhanNhanPhong (transaction)
             TempData["ThanhCong"] = "Xác nhận hoàn tất nhận phòng thành công. Đã gửi thông báo cho sinh viên.";
             return RedirectToAction("ChiTietDangKy", new { id = maPhieu });
         }
@@ -68,7 +95,7 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult HuyPhieu(int maPhieu)
         {
-            Db.ExecProc("sp_HuyPhieu", Db.P("@MaPhieu", maPhieu));
+            QuanLyRepo.HuyPhieu(maPhieu);   // sp_HuyPhieu (transaction)
             TempData["ThanhCong"] = "Đã hủy phiếu và trả giường về trạng thái trống.";
             return RedirectToAction("DonDangKy");
         }
@@ -77,7 +104,7 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult XacNhanTraPhong(int maDon)
         {
-            Db.ExecProc("sp_XacNhanTraPhong", Db.P("@MaDon", maDon), Db.P("@MaNV", MaNV));
+            QuanLyRepo.XacNhanTraPhong(maDon, MaNV);   // sp_XacNhanTraPhong (transaction)
             TempData["ThanhCong"] = "Đã xác nhận trả phòng. Giường đã được giải phóng và sinh viên đã được thông báo.";
             return RedirectToAction("ChiTietDon", new { id = maDon });
         }
@@ -85,10 +112,13 @@ namespace DormManager.Controllers
         // ============ Danh sách + tra cứu phòng ============
         public IActionResult Phong(string? tuKhoa, string? maToa)
         {
-            ViewBag.DsPhong = Db.QueryProc("sp_DsPhongQuanLy",
+            ViewBag.DsPhong = Db.Query(@"SELECT p.*, t.TenToa FROM PHONG p JOIN TOANHA t ON t.MaToa = p.MaToa
+    WHERE (@TuKhoa IS NULL OR p.MaPhong LIKE '%' + @TuKhoa + '%')
+      AND (@MaToa IS NULL OR p.MaToa = @MaToa)
+    ORDER BY p.MaToa, p.Tang, p.MaPhong;",
                 Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()),
                 Db.P("@MaToa", string.IsNullOrWhiteSpace(maToa) ? null : maToa));
-            ViewBag.DsToa = Db.QueryProc("sp_DsToaQuanLy");
+            ViewBag.DsToa = Db.Query(@"SELECT MaToa, TenToa FROM TOANHA ORDER BY MaToa;");
             return View();
         }
 
@@ -96,21 +126,25 @@ namespace DormManager.Controllers
         public IActionResult Giuong(string maPhong)
         {
             ViewBag.MaPhong = maPhong;
-            ViewBag.DsGiuong = Db.QueryProc("sp_DsGiuongChiTietQuanLy", Db.P("@MaPhong", maPhong));
+            ViewBag.DsGiuong = Db.Query(@"SELECT g.MaGiuong, g.TrangThai, sv.HoTen, sv.MSSV
+    FROM GIUONG g
+    LEFT JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.TrangThai IN ('DangO','ChoDoiChieu')
+    LEFT JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
+    WHERE g.MaPhong = @MaPhong ORDER BY g.MaGiuong;", Db.P("@MaPhong", maPhong));
             return View();
         }
 
         [HttpPost]
         public IActionResult CapNhatGiuong(string maGiuong, string maPhong, string trangThai)
         {
-            var dangO = Db.ScalarProc("sp_KiemTraGiuongDangO", Db.P("@MaGiuong", maGiuong));
+            var dangO = Db.Scalar(@"SELECT COUNT(*) FROM PHIEUDANGKY WHERE MaGiuong = @MaGiuong AND TrangThai IN ('DangO','ChoDoiChieu');", Db.P("@MaGiuong", maGiuong));
             if (Convert.ToInt32(dangO) > 0 && trangThai != "DaSuDung")
             {
                 TempData["Loi"] = "Giường đang có sinh viên ở/giữ chỗ, không thể đổi trạng thái.";
                 return RedirectToAction("Giuong", new { maPhong });
             }
 
-            Db.ExecProc("sp_CapNhatGiuong", Db.P("@MaGiuong", maGiuong), Db.P("@MaPhong", maPhong), Db.P("@TrangThai", trangThai));
+            QuanLyRepo.CapNhatGiuong(maGiuong, maPhong, trangThai);   // sp_CapNhatGiuong (transaction đồng bộ số giường trống)
             TempData["ThanhCong"] = $"Đã cập nhật trạng thái giường {maGiuong}.";
             return RedirectToAction("Giuong", new { maPhong });
         }
@@ -120,7 +154,18 @@ namespace DormManager.Controllers
         {
             thang ??= DateTime.Now.ToString("MM/yyyy");
             ViewBag.Thang = thang;
-            ViewBag.DsPhong = Db.QueryProc("sp_DsPhongChiSo", Db.P("@Thang", thang));
+            ViewBag.DsPhong = Db.Query(@"SELECT p.MaPhong, p.SoGiuong - p.SoGiuongTrong AS SoNguoiO,
+           cs.MaChiSo, cs.DienDauKy, cs.DienCuoiKy, cs.NuocDauKy, cs.NuocCuoiKy, cs.TrangThai,
+           truoc.DienCuoiKy AS DienKyTruoc, truoc.NuocCuoiKy AS NuocKyTruoc
+    FROM PHONG p
+    LEFT JOIN CHISODIENNUOC cs ON cs.MaPhong = p.MaPhong AND cs.Thang = @Thang
+    OUTER APPLY (SELECT TOP 1 DienCuoiKy, NuocCuoiKy FROM CHISODIENNUOC
+                 WHERE MaPhong = p.MaPhong AND Thang <> @Thang
+                 ORDER BY RIGHT(Thang,4) DESC, LEFT(Thang,2) DESC) truoc
+    WHERE p.TrangThai = 'HoatDong'
+      AND EXISTS (SELECT 1 FROM GIUONG g JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong
+                  WHERE g.MaPhong = p.MaPhong AND pd.TrangThai = 'DangO')
+    ORDER BY p.MaPhong;", Db.P("@Thang", thang));
             return View();
         }
 
@@ -134,17 +179,14 @@ namespace DormManager.Controllers
                 return RedirectToAction("ChiSo", new { thang });
             }
 
-            var daChot = Db.ScalarProc("sp_KiemTraDaChot", Db.P("@MaPhong", maPhong), Db.P("@Thang", thang));
+            var daChot = Db.Scalar(@"SELECT COUNT(*) FROM CHISODIENNUOC WHERE MaPhong = @MaPhong AND Thang = @Thang AND TrangThai = 'DaChot';", Db.P("@MaPhong", maPhong), Db.P("@Thang", thang));
             if (Convert.ToInt32(daChot) > 0)
             {
                 TempData["Loi"] = $"Chỉ số phòng {maPhong} tháng {thang} đã chốt (đã xuất hóa đơn), không thể sửa.";
                 return RedirectToAction("ChiSo", new { thang });
             }
 
-            Db.ExecProc("sp_LuuChiSo",
-                Db.P("@MaPhong", maPhong), Db.P("@Thang", thang),
-                Db.P("@DienDauKy", dienDauKy), Db.P("@DienCuoiKy", dienCuoiKy),
-                Db.P("@NuocDauKy", nuocDauKy), Db.P("@NuocCuoiKy", nuocCuoiKy));
+            QuanLyRepo.LuuChiSo(maPhong, thang, dienDauKy, dienCuoiKy, nuocDauKy, nuocCuoiKy);   // sp_LuuChiSo (MERGE)
             TempData["ThanhCong"] = $"Đã lưu chỉ số điện/nước phòng {maPhong} tháng {thang}.";
             return RedirectToAction("ChiSo", new { thang });
         }
@@ -154,21 +196,22 @@ namespace DormManager.Controllers
         {
             thang ??= DateTime.Now.ToString("MM/yyyy");
             ViewBag.Thang = thang;
-            var donGia = Db.QueryProc("sp_DonGiaHieuLuc");
+            var donGia = Db.Query(@"SELECT TOP 1 * FROM DONGIA WHERE TrangThai = 'HieuLuc' ORDER BY NgayApDung DESC;");
             ViewBag.DonGia = donGia.Rows.Count > 0 ? donGia.Rows[0] : null;
-            ViewBag.DsXemTruoc = Db.QueryProc("sp_NguonTaoHoaDon", Db.P("@Thang", thang));
-            ViewBag.DsNhap = Db.QueryProc("sp_DsNhap");
+            ViewBag.DsXemTruoc = QuanLyRepo.NguonTaoHoaDon(thang);   // sp_NguonTaoHoaDon (tính số người ở trọn tháng)
+            ViewBag.DsNhap = Db.Query(@"SELECT h.MaHD, h.MaPhong, h.Thang, h.TongTien, h.HanThanhToan
+    FROM HOADON h WHERE h.TrangThai = 'Nhap' ORDER BY h.MaPhong;");
             return View();
         }
 
         [HttpPost]
         public IActionResult TaoHoaDonThang(string thang, int hanThanhToanNgay = 15)
         {
-            var donGia = Db.QueryProc("sp_DonGiaHieuLuc");
+            var donGia = Db.Query(@"SELECT TOP 1 * FROM DONGIA WHERE TrangThai = 'HieuLuc' ORDER BY NgayApDung DESC;");
             if (donGia.Rows.Count == 0) { TempData["Loi"] = "Chưa cấu hình đơn giá điện/nước hiệu lực."; return RedirectToAction("TaoHoaDon", new { thang }); }
             var dg = donGia.Rows[0];
 
-            var ds = Db.QueryProc("sp_NguonTaoHoaDon", Db.P("@Thang", thang));
+            var ds = QuanLyRepo.NguonTaoHoaDon(thang);
             if (ds.Rows.Count == 0) { TempData["Loi"] = "Không có chỉ số nào cần tạo hóa đơn cho tháng này."; return RedirectToAction("TaoHoaDon", new { thang }); }
 
             int soHD = 0;
@@ -183,11 +226,8 @@ namespace DormManager.Controllers
                 decimal tienPhong = Convert.ToDecimal(r["GiaPhong"]) * Convert.ToInt32(r["SoNguoiO"]) + phiDV;
                 decimal tongTien = tienPhong + tienDien + tienNuoc;
 
-                Db.ExecProc("sp_TaoHoaDonDong",
-                    Db.P("@MaPhong", r["MaPhong"]), Db.P("@MaChiSo", r["MaChiSo"]), Db.P("@MaDonGia", dg["MaDonGia"]),
-                    Db.P("@Thang", thang), Db.P("@TienPhong", tienPhong), Db.P("@TienDien", tienDien),
-                    Db.P("@TienNuoc", tienNuoc), Db.P("@TongTien", tongTien),
-                    Db.P("@HanThanhToan", DateTime.Today.AddDays(hanThanhToanNgay)));
+                QuanLyRepo.TaoHoaDonDong(r["MaPhong"], r["MaChiSo"], dg["MaDonGia"], thang,
+                    tienPhong, tienDien, tienNuoc, tongTien, DateTime.Today.AddDays(hanThanhToanNgay));   // sp_TaoHoaDonDong (transaction)
                 soHD++;
             }
             TempData["ThanhCong"] = $"Đã tạo {soHD} hóa đơn (bản nháp) cho tháng {thang}. Hãy kiểm tra và xác nhận gửi.";
@@ -198,19 +238,19 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult GuiHoaDon(int maHD)
         {
-            var hd = Db.QueryProc("sp_ThongTinHoaDonNhap", Db.P("@MaHD", maHD));
+            var hd = Db.Query(@"SELECT MaPhong, Thang, TongTien, HanThanhToan FROM HOADON WHERE MaHD = @MaHD AND TrangThai = 'Nhap';", Db.P("@MaHD", maHD));
             if (hd.Rows.Count == 0) { TempData["Loi"] = "Hóa đơn không hợp lệ."; return RedirectToAction("TaoHoaDon"); }
             var r = hd.Rows[0];
 
-            Db.ExecProc("sp_GuiHoaDon", Db.P("@MaHD", maHD));
+            Db.Exec(@"UPDATE HOADON SET TrangThai = 'ChoThanhToan', NgayPhatHanh = GETDATE() WHERE MaHD = @MaHD;", Db.P("@MaHD", maHD));
             // Gửi thông báo Email/SMS tới từng sinh viên trong phòng, lưu lịch sử
-            var dsSV = Db.QueryProc("sp_DsSVTrongPhong", Db.P("@MaPhong", r["MaPhong"]), Db.P("@Thang", r["Thang"]));
+            var dsSV = Db.Query(@"SELECT pd.MSSV FROM PHIEUDANGKY pd
+    JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
+    WHERE g.MaPhong = @MaPhong AND pd.TrangThai = 'DangO';", Db.P("@MaPhong", r["MaPhong"]));
             foreach (System.Data.DataRow sv in dsSV.Rows)
             {
-                Db.ExecProc("sp_Chung_ThemThongBao",
-                    Db.P("@MSSV", sv["MSSV"]), Db.P("@MaHD", maHD),
-                    Db.P("@NoiDung", $"Hóa đơn tháng {r["Thang"]} phòng {r["MaPhong"]}: {Convert.ToDecimal(r["TongTien"]):N0}đ. Hạn thanh toán {Convert.ToDateTime(r["HanThanhToan"]):dd/MM/yyyy}."),
-                    Db.P("@Kenh", "Email"));
+                CommonRepo.ThemThongBao(sv["MSSV"].ToString()!, maHD,
+                    $"Hóa đơn tháng {r["Thang"]} phòng {r["MaPhong"]}: {Convert.ToDecimal(r["TongTien"]):N0}đ. Hạn thanh toán {Convert.ToDateTime(r["HanThanhToan"]):dd/MM/yyyy}.");
             }
             TempData["ThanhCong"] = $"Đã gửi hóa đơn #{maHD} và thông báo tới {dsSV.Rows.Count} sinh viên trong phòng.";
             return RedirectToAction("TaoHoaDon");
@@ -219,39 +259,34 @@ namespace DormManager.Controllers
         // ============ Lịch sử thông báo hóa đơn + tra cứu ============
         public IActionResult LichSuThongBao(string? tuKhoa)
         {
-            ViewBag.DsTB = Db.QueryProc("sp_DsThongBao", Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()));
+            ViewBag.DsTB = Db.Query(@"SELECT tb.MaTB, tb.MSSV, sv.HoTen, tb.MaHD, tb.NoiDung, tb.Kenh, tb.ThoiGianGui, tb.TrangThaiGui
+    FROM THONGBAO tb JOIN SINHVIEN sv ON sv.MSSV = tb.MSSV
+    WHERE (@TuKhoa IS NULL OR tb.MSSV LIKE '%' + @TuKhoa + '%' OR sv.HoTen LIKE '%' + @TuKhoa + '%' OR tb.NoiDung LIKE '%' + @TuKhoa + '%')
+    ORDER BY tb.ThoiGianGui DESC;", Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()));
             return View();
         }
 
         // ============ Sinh viên vi phạm + mở khóa tài khoản ============
         public IActionResult ViPham(string? tuKhoa)
         {
-            // Job tự động: quét hóa đơn quá hạn - mô phỏng khi mở trang
-            QuetHoaDonQuaHan();
+            // Job tự động (mô phỏng khi mở trang): quét hóa đơn quá hạn -> khóa TK (QD05), ghi vi phạm (QD06)
+            QuanLyRepo.QuetHoaDonQuaHan();
 
-            ViewBag.DsViPham = Db.QueryProc("sp_DsViPham", Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()));
-            ViewBag.LichSu = Db.QueryProc("sp_LichSuViPham");
+            ViewBag.DsViPham = Db.Query(@"SELECT sv.MSSV, sv.HoTen, sv.KhoaHoc, sv.DiemViPham, tk.TrangThai AS TrangThaiTK, tk.MaTK
+    FROM SINHVIEN sv JOIN TAIKHOAN tk ON tk.MaTK = sv.MaTK
+    WHERE (sv.DiemViPham > 0 OR tk.TrangThai = 'BiKhoa')
+      AND (@TuKhoa IS NULL OR sv.MSSV LIKE '%' + @TuKhoa + '%' OR sv.HoTen LIKE '%' + @TuKhoa + '%')
+    ORDER BY sv.DiemViPham DESC;", Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()));
+            ViewBag.LichSu = Db.Query(@"SELECT vp.*, sv.HoTen FROM VIPHAM vp
+    JOIN SINHVIEN sv ON sv.MSSV = vp.MSSV ORDER BY vp.NgayGhiNhan DESC;");
             return View();
         }
 
-        /// <summary>Mô phỏng job tự động: khóa TK khi quá hạn >= TS3 ngày; ghi vi phạm khi quá hạn > TS4 ngày.</summary>
-        private void QuetHoaDonQuaHan()
-        {
-            Db.ExecProc("sp_CapNhatHoaDonQuaHan");
-
-            int ts3 = int.Parse(Db.ScalarProc("sp_Chung_LayThamSo", Db.P("@MaThamSo", "TS3"))!.ToString()!);
-            int ts4 = int.Parse(Db.ScalarProc("sp_Chung_LayThamSo", Db.P("@MaThamSo", "TS4"))!.ToString()!);
-            int ts6 = int.Parse(Db.ScalarProc("sp_Chung_LayThamSo", Db.P("@MaThamSo", "TS6"))!.ToString()!);
-
-            Db.ExecProc("sp_KhoaTaiKhoanQuaHan", Db.P("@TS3", ts3));
-            Db.ExecProc("sp_GhiNhanViPham", Db.P("@TS4", ts4), Db.P("@TS6", ts6));
-            Db.ExecProc("sp_CapNhatDiemViPham");
-        }
         // Xác nhận mở khóa tài khoản
         [HttpPost]
         public IActionResult MoKhoa(int maTK)
         {
-            Db.ExecProc("sp_MoKhoa", Db.P("@MaTK", maTK));
+            QuanLyRepo.MoKhoa(maTK);   // sp_MoKhoa (transaction + gửi thông báo)
             TempData["ThanhCong"] = "Đã mở khóa tài khoản và gửi thông báo.";
             return RedirectToAction("ViPham");
         }

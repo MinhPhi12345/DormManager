@@ -5,10 +5,14 @@ namespace DormManager.Helpers
 {
     /// <summary>
     /// Lớp truy cập dữ liệu dùng chung (ADO.NET) - kết nối SQL Server.
-    /// Toàn bộ nghiệp vụ (theo từng Biểu mẫu - BM) được cài đặt dưới dạng
-    /// Stored Procedure trong Database/StoredProcedures.sql, lớp này chỉ có
-    /// nhiệm vụ gọi các SP đó (CommandType.StoredProcedure) và trả kết quả
-    /// về dạng DataTable/DataSet cho Controller sử dụng.
+    /// Dự án dùng kiến trúc HYBRID:
+    ///  - CRUD / truy vấn 1 câu đơn giản: viết SQL tham số hóa trực tiếp trong
+    ///    Controller, gọi qua Query / Exec / Scalar (CommandType.Text).
+    ///  - Nghiệp vụ phức tạp (giao dịch nhiều bảng, nhiều result set, MERGE,
+    ///    job quét theo tập hợp): giữ ở Stored Procedure (Database/StoredProcedures.sql)
+    ///    và gọi qua QueryProc / QuerySetProc / ExecProc / ScalarProc
+    ///    (CommandType.StoredProcedure).
+    /// Cả hai nhánh đều tham số hóa để chống SQL injection.
     /// </summary>
     public static class Db
     {
@@ -16,7 +20,7 @@ namespace DormManager.Helpers
 
         public static void Init(string connStr) => _connStr = connStr;
 
-        // ================= Gọi câu SQL trực tiếp (chỉ dùng cho job nội bộ / trường hợp đặc biệt) =================
+        // ================= Gọi câu SQL tham số hóa trực tiếp (CRUD / truy vấn đơn giản) =================
         public static DataTable Query(string sql, params SqlParameter[] ps)
         {
             using var conn = new SqlConnection(_connStr);
@@ -62,7 +66,7 @@ namespace DormManager.Helpers
         }
 
         /// <summary>Gọi SP trả về NHIỀU result set (nhiều câu SELECT trong 1 SP) -> DataSet.
- /// Dùng cho các trang tổng hợp (..) để giảm số lượt round-trip DB.</summary>
+        /// Dùng cho các trang tổng hợp (..) để giảm số lượt round-trip DB.</summary>
         public static DataSet QuerySetProc(string procName, params SqlParameter[] ps)
         {
             using var conn = new SqlConnection(_connStr);
