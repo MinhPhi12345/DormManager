@@ -227,14 +227,14 @@ INSERT INTO THAMSO (MaThamSo, GiaTri, GhiChu) VALUES
 
 -- Tài khoản
 INSERT INTO TAIKHOAN (TenDangNhap, MatKhau, Email, SDT, VaiTro) VALUES
-('admin',      @mk, 'admin@ktx.edu.vn',      '0900000001', 'QTV'),
-('ql01',       @mk, 'ql01@ktx.edu.vn',       '0900000002', 'QL'),
-('ql02',       @mk, 'ql02@ktx.edu.vn',       '0900000003', 'QL'),
-('SV2026001',  @mk, 'sv2026001@st.edu.vn',   '0911000001', 'SV'),
-('SV2026002',  @mk, 'sv2026002@st.edu.vn',   '0911000002', 'SV'),
-('SV2025001',  @mk, 'sv2025001@st.edu.vn',   '0911000003', 'SV'),
-('SV2025002',  @mk, 'sv2025002@st.edu.vn',   '0911000004', 'SV'),
-('SV2024001',  @mk, 'sv2024001@st.edu.vn',   '0911000005', 'SV');
+('admin',      @mk, 'admin@ktx.edu.vn',            '0900000001', 'QTV'),
+('ql01',       @mk, 'ql01@ktx.edu.vn',             '0900000002', 'QL'),
+('ql02',       @mk, 'ql02@ktx.edu.vn',             '0900000003', 'QL'),
+('24DH113343',  @mk, '24dh113343@st.huflit.edu.vn', '0911000005', 'SV'),
+('25DH113344',  @mk, '25dh113344@st.huflit.edu.vn', '0911000003', 'SV'),
+('25DH113345',  @mk, '25dh113345@st.huflit.edu.vn', '0911000004', 'SV'),
+('26DH113346',  @mk, '26dh113346@st.huflit.edu.vn', '0911000001', 'SV'),
+('26DH113347',  @mk, '26dh113347@st.huflit.edu.vn', '0911000002', 'SV');
 
 -- Tòa nhà
 INSERT INTO TOANHA (MaToa, TenToa, DiaChi, SoTang) VALUES
@@ -248,11 +248,11 @@ INSERT INTO QUANLY (MaNV, MaTK, HoTen, MaToa) VALUES
 
 -- Sinh viên
 INSERT INTO SINHVIEN (MSSV, MaTK, HoTen, NgaySinh, GioiTinh, KhoaHoc, DoiTuong) VALUES
-('SV2026001', 4, N'Nguyễn Văn An',   '2008-03-15', 'Nam', 'K2026', 'BinhThuong'),
-('SV2026002', 5, N'Phạm Thị Bình',   '2008-07-22', 'Nu',  'K2026', 'ChinhSach'),
-('SV2025001', 6, N'Đặng Hoàng Minh', '2007-01-10', 'Nam', 'K2025', 'BinhThuong'),
-('SV2025002', 7, N'Trần Thu Cúc',    '2007-11-05', 'Nu',  'K2025', 'BinhThuong'),
-('SV2024001', 8, N'Võ Quốc Dũng',    '2006-05-30', 'Nam', 'K2024', 'BinhThuong');
+('24DH113343', 4, N'Võ Quốc Dũng',    '2006-05-30', 'Nam', 'K2024', 'BinhThuong'),
+('25DH113344', 5, N'Đặng Hoàng Minh', '2007-01-10', 'Nam', 'K2025', 'BinhThuong'),
+('25DH113345', 6, N'Trần Thu Cúc',    '2007-11-05', 'Nu',  'K2025', 'BinhThuong'),
+('26DH113346', 7, N'Nguyễn Văn An',   '2008-03-15', 'Nam', 'K2026', 'BinhThuong'),
+('26DH113347', 8, N'Phạm Thị Bình',   '2008-07-22', 'Nu',  'K2026', 'ChinhSach');
 
 -- Phòng
 INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong) VALUES
@@ -282,10 +282,10 @@ INSERT INTO DOTDANGKY (TenDot, LoaiDot, HocKy, NgayMo, NgayDong, TrangThai) VALU
 
 -- Phiếu đăng ký / hợp đồng
 INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetThuc, TrangThai) VALUES
-('SV2025001', 'A1-201-G1', 2, '2026-07-06', '2026-08-15', '2027-01-15', 'DangO'),
-('SV2025002', 'A1-201-G2', 2, '2026-07-06', '2026-08-15', '2027-01-15', 'DangO'),
-('SV2024001', 'B1-101-G1', 2, '2026-07-07', '2026-08-15', '2027-01-15', 'DangO'),
-('SV2026001', 'A1-202-G1', 2, GETDATE(),    '2026-08-15', '2027-01-15', 'ChoDoiChieu');
+('25DH113344', 'A1-201-G1', 2, '2026-07-06', '2026-08-15', '2027-01-15', 'DangO'),
+('25DH113345', 'A1-201-G2', 2, '2026-07-06', '2026-08-15', '2027-01-15', 'DangO'),
+('24DH113343', 'B1-101-G1', 2, '2026-07-07', '2026-08-15', '2027-01-15', 'DangO'),
+('26DH113346', 'A1-202-G1', 2, GETDATE(),    '2026-08-15', '2027-01-15', 'ChoDoiChieu');
 
 -- Giữ chỗ cho phiếu ChoDoiChieu
 UPDATE GIUONG SET TrangThai='DaSuDung' WHERE MaGiuong='A1-202-G1';
@@ -304,8 +304,8 @@ INSERT INTO CHISODIENNUOC (MaPhong, Thang, DienDauKy, DienCuoiKy, NuocDauKy, Nuo
 ('B1-101', '06/2026',  905.0, 1012.5, 221.5, 232.8, 'DaChot');
 
 -- Hóa đơn (TienPhong = GiaPhong × SoNguoiO + PhiDichVu; TienDien = kWh × GiaDien; TienNuoc = m³ × GiaNuoc)
--- A1-201 có 2 SV (SV2025001, SV2025002): 450.000×2 + 20.000 = 920.000đ
--- B1-101 có 1 SV (SV2024001): 650.000×1 + 20.000 = 670.000đ
+-- A1-201 có 2 SV (25DH113344, 25DH113345): 450.000×2 + 20.000 = 920.000đ
+-- B1-101 có 1 SV (24DH113343): 650.000×1 + 20.000 = 670.000đ
 INSERT INTO HOADON (MaPhong, MaChiSo, MaDonGia, Thang, TienPhong, TienDien, TienNuoc, TongTien, NgayPhatHanh, HanThanhToan, TrangThai) VALUES
 ('A1-201', 1, 2, '05/2026', 920000, 421400, 273600, 1615000, '2026-06-01', '2026-06-15', 'DaThanhToan'),
 ('B1-101', 2, 2, '05/2026', 670000, 294000, 207000, 1171000, '2026-06-01', '2026-06-15', 'QuaHan'),
@@ -314,26 +314,26 @@ INSERT INTO HOADON (MaPhong, MaChiSo, MaDonGia, Thang, TienPhong, TienDien, Tien
 
 -- Thanh toán
 INSERT INTO THANHTOAN (MaHD, MSSV, PhuongThuc, SoTien, MaGDCong, ThoiGian, KetQua) VALUES
-(1, 'SV2025001', 'VNPay', 1615000, 'VNP20260610001', '2026-06-10', 'ThanhCong');
+(1, '25DH113344', 'VNPay', 1615000, 'VNP20260610001', '2026-06-10', 'ThanhCong');
 
 -- Vi phạm (hóa đơn B1-101 tháng 05 quá hạn > 14 ngày)
 INSERT INTO VIPHAM (MSSV, MaHD, NgayGhiNhan, SoDiem, LyDo) VALUES
-('SV2024001', 2, '2026-06-30', 1, N'Hóa đơn 05/2026 quá hạn thanh toán trên 14 ngày');
-UPDATE SINHVIEN SET DiemViPham = 1 WHERE MSSV = 'SV2024001';
+('24DH113343', 2, '2026-06-30', 1, N'Hóa đơn 05/2026 quá hạn thanh toán trên 14 ngày');
+UPDATE SINHVIEN SET DiemViPham = 1 WHERE MSSV = '24DH113343';
 
 -- Đơn phản hồi / đề xuất
 INSERT INTO DONYEUCAU (MSSV, MaNV, LoaiDon, TieuDe, NoiDung, MucUuTien, TrangThai, PhanHoi, NgayTao) VALUES
-('SV2025001', 'NV001', 'PhanHoi', N'Hỏng bóng đèn phòng A1-201', N'Bóng đèn trần giữa phòng bị chập chờn, xin sửa giúp.', 'Cao', 'DangXuLy', N'Đã tiếp nhận, kỹ thuật sẽ đến trong tuần.', '2026-07-05'),
-('SV2025002', NULL,   'DeXuat',  N'Lắp thêm quạt trần',          N'Phòng nóng vào buổi trưa, đề xuất lắp thêm 1 quạt trần.', 'TrungBinh', 'ChoXuLy', NULL, '2026-07-08'),
-('SV2024001', NULL,   'PhanHoi', N'Vòi nước rò rỉ',              N'Vòi nước khu vệ sinh phòng B1-101 bị rò rỉ.', 'TrungBinh', 'ChoXuLy', NULL, '2026-07-10');
+('25DH113344', 'NV001', 'PhanHoi', N'Hỏng bóng đèn phòng A1-201', N'Bóng đèn trần giữa phòng bị chập chờn, xin sửa giúp.', 'Cao', 'DangXuLy', N'Đã tiếp nhận, kỹ thuật sẽ đến trong tuần.', '2026-07-05'),
+('25DH113345', NULL,   'DeXuat',  N'Lắp thêm quạt trần',          N'Phòng nóng vào buổi trưa, đề xuất lắp thêm 1 quạt trần.', 'TrungBinh', 'ChoXuLy', NULL, '2026-07-08'),
+('24DH113343', NULL,   'PhanHoi', N'Vòi nước rò rỉ',              N'Vòi nước khu vệ sinh phòng B1-101 bị rò rỉ.', 'TrungBinh', 'ChoXuLy', NULL, '2026-07-10');
 
 -- Thông báo
 INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui) VALUES
-('SV2025001', 3, N'Hóa đơn tháng 06/2026 phòng A1-201: 1.628.600đ. Hạn thanh toán 20/07/2026.', 'Email', '2026-07-01', 'ThanhCong'),
-('SV2025002', 3, N'Hóa đơn tháng 06/2026 phòng A1-201: 1.628.600đ. Hạn thanh toán 20/07/2026.', 'Email', '2026-07-01', 'ThanhCong'),
-('SV2024001', 4, N'Hóa đơn tháng 06/2026 phòng B1-101: 1.174.400đ. Hạn thanh toán 20/07/2026.', 'SMS',   '2026-07-01', 'ThanhCong');
+('25DH113344', 3, N'Hóa đơn tháng 06/2026 phòng A1-201: 1.628.600đ. Hạn thanh toán 20/07/2026.', 'Email', '2026-07-01', 'ThanhCong'),
+('25DH113345', 3, N'Hóa đơn tháng 06/2026 phòng A1-201: 1.628.600đ. Hạn thanh toán 20/07/2026.', 'Email', '2026-07-01', 'ThanhCong'),
+('24DH113343', 4, N'Hóa đơn tháng 06/2026 phòng B1-101: 1.174.400đ. Hạn thanh toán 20/07/2026.', 'SMS',   '2026-07-01', 'ThanhCong');
 GO
 
 PRINT N'>>> Tạo CSDL DormManager thành công! Mật khẩu mọi tài khoản: 123456';
-PRINT N'>>> QTV: admin | QL: ql01, ql02 | SV: SV2026001, SV2026002, SV2025001, SV2025002, SV2024001';
+PRINT N'>>> QTV: admin | QL: ql01, ql02 | SV: 26DH113346, 26DH113347, 25DH113344, 25DH113345, 24DH113343';
 GO

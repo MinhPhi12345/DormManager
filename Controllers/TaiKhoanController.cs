@@ -23,7 +23,10 @@ namespace DormManager.Controllers
                 return View();
             }
 
-            var dt = Db.QueryProc("sp_DangNhap", Db.P("@TenDangNhap", tenDangNhap.Trim()));
+            var dt = Db.Query(@"SELECT MaTK, TenDangNhap, MatKhau, VaiTro, TrangThai
+    FROM TAIKHOAN
+    WHERE TenDangNhap = @TenDangNhap OR Email = @TenDangNhap;",
+                Db.P("@TenDangNhap", tenDangNhap.Trim()));
 
             if (dt.Rows.Count == 0 || dt.Rows[0]["MatKhau"].ToString() != AuthHelper.Sha256(matKhau))
             {
@@ -34,7 +37,7 @@ namespace DormManager.Controllers
             var row = dt.Rows[0];
             if (row["TrangThai"].ToString() == "BiKhoa")
             {
- ViewBag.Loi = "Tài khoản đang bị khóa do vi phạm quy định thanh toán. Vui lòng liên hệ Ban quản lý.";
+                ViewBag.Loi = "Tài khoản đang bị khóa do vi phạm quy định thanh toán. Vui lòng liên hệ Ban quản lý.";
                 return View();
             }
 
@@ -47,7 +50,7 @@ namespace DormManager.Controllers
             // Lấy họ tên + mã định danh theo vai trò
             if (vaiTro == "SV")
             {
-                var sv = Db.QueryProc("sp_LayHoTenSVTheoTK", Db.P("@MaTK", maTK));
+                var sv = Db.Query(@"SELECT MSSV, HoTen FROM SINHVIEN WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK));
                 if (sv.Rows.Count > 0)
                 {
                     HttpContext.Session.SetString("MSSV", sv.Rows[0]["MSSV"].ToString()!);
@@ -56,7 +59,7 @@ namespace DormManager.Controllers
             }
             else if (vaiTro == "QL")
             {
-                var ql = Db.QueryProc("sp_ThongTinQL", Db.P("@MaTK", maTK));
+                var ql = Db.Query(@"SELECT MaNV, HoTen FROM QUANLY WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK));
                 if (ql.Rows.Count > 0)
                 {
                     HttpContext.Session.SetString("MaNV", ql.Rows[0]["MaNV"].ToString()!);
@@ -86,7 +89,7 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult QuenMatKhau(string hoTen, string email)
         {
-            var dt = Db.QueryProc("sp_KiemTraEmail", Db.P("@Email", (email ?? "").Trim()));
+            var dt = Db.Query(@"SELECT MaTK FROM TAIKHOAN WHERE Email = @Email;", Db.P("@Email", (email ?? "").Trim()));
             if (dt.Rows.Count == 0)
             {
                 ViewBag.Loi = "Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại email được cấp.";
