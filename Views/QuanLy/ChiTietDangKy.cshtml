@@ -90,7 +90,9 @@
                 <input type="hidden" name="maPhieu" value="@p["MaPhieu"]" />
                 <button type="submit" class="btn btn-dm"><i class="bi bi-check-lg me-1"></i>Xác nhận hoàn tất nhận phòng</button>
             </form>
-            <form method="post" asp-action="HuyPhieu" onsubmit="return confirm('Hủy phiếu này và trả giường về trạng thái trống?');">
+            <form method="post" asp-action="HuyPhieu"
+                  data-confirm-title="Hủy phiếu đăng ký" data-confirm-level="danger"
+                  data-confirm-message="Hủy phiếu này và trả giường về trạng thái trống?">
                 <input type="hidden" name="maPhieu" value="@p["MaPhieu"]" />
                 <button type="submit" class="btn btn-outline-danger">Từ chối / Hủy phiếu</button>
             </form>

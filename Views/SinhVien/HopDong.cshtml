@@ -92,7 +92,8 @@
                     else
                     {
                         <form method="post" asp-action="TraPhong"
-                              onsubmit="return confirm('Gửi yêu cầu trả phòng tới Ban quản lý? Bạn cần hoàn thành mọi nghĩa vụ tài chính trước khi được xác nhận.');">
+                              data-confirm-title="Yêu cầu trả phòng" data-confirm-level="warning"
+                              data-confirm-message="Gửi yêu cầu trả phòng tới Ban quản lý? Bạn cần hoàn thành mọi nghĩa vụ tài chính trước khi được xác nhận.">
                             <input type="hidden" name="maPhieu" value="@r["MaPhieu"]" />
                             <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-box-arrow-left me-1"></i>Yêu cầu trả phòng</button>
                         </form>

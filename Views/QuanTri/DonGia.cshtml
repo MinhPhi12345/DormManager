@@ -37,7 +37,9 @@
                 điện ≤ <b>@(Convert.ToDecimal(ViewBag.TS7).ToString("N0"))đ/kWh</b>,
                 nước ≤ <b>@(Convert.ToDecimal(ViewBag.TS8).ToString("N0"))đ/m³</b>.
             </div>
-            <form method="post" asp-action="CapNhatDonGia">
+            <form method="post" asp-action="CapNhatDonGia"
+                  data-confirm-title="Áp dụng biểu giá mới" data-confirm-level="warning"
+                  data-confirm-message="Áp dụng biểu giá mới? Biểu giá cũ sẽ hết hiệu lực và các hóa đơn sau này tính theo giá mới.">
                 <div class="mb-3">
                     <label class="form-label small">Đơn giá điện (đ/kWh)</label>
                     <input type="number" name="giaDien" class="form-control" min="1" step="100" required />
@@ -54,8 +56,7 @@
                     <label class="form-label small">Ngày áp dụng</label>
                     <input type="date" name="ngayApDung" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
                 </div>
-                <button type="submit" class="btn btn-dm w-100"
-                        onclick="return confirm('Áp dụng biểu giá mới? Biểu giá cũ sẽ hết hiệu lực và các hóa đơn sau này tính theo giá mới.');">
+                <button type="submit" class="btn btn-dm w-100">
                     Áp dụng biểu giá
                 </button>
             </form>

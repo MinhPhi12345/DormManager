@@ -25,6 +25,37 @@ namespace DormManager.Controllers
             ViewBag.SanLuong  = ds.Tables[2];
             ViewBag.DonTheoTT = ds.Tables[3];
 
+            // % tăng/giảm doanh thu tháng gần nhất so với tháng liền trước - tính từ dữ liệu
+            // đã có sẵn ở Result set 2 (ds.Tables[1]), KHÔNG cần thêm truy vấn/SP mới.
+            var dt = ds.Tables[1];
+            decimal? phanTramDoanhThu = null;
+            if (dt.Rows.Count >= 2)
+            {
+                decimal thangNay = Convert.ToDecimal(dt.Rows[dt.Rows.Count - 1]["TongTien"]);
+                decimal thangTruoc = Convert.ToDecimal(dt.Rows[dt.Rows.Count - 2]["TongTien"]);
+                if (thangTruoc > 0) phanTramDoanhThu = Math.Round((thangNay - thangTruoc) / thangTruoc * 100, 1);
+            }
+            ViewBag.PhanTramDoanhThu = phanTramDoanhThu; // null nếu không đủ dữ liệu 2 tháng để so sánh
+
+            return View();
+        }
+
+        // ============ Danh sách + tra cứu hóa đơn toàn hệ thống (dành cho QTV) ============
+        public IActionResult HoaDon(string? tuKhoa, string? thang, string? trangThai)
+        {
+            ViewBag.DsHoaDon = Db.Query(@"SELECT h.MaHD, h.MaPhong, h.Thang, h.TienPhong, h.TienDien, h.TienNuoc,
+           h.TongTien, h.NgayPhatHanh, h.HanThanhToan, h.TrangThai, t.TenToa
+    FROM HOADON h
+    JOIN PHONG p ON p.MaPhong = h.MaPhong
+    JOIN TOANHA t ON t.MaToa = p.MaToa
+    WHERE h.TrangThai <> 'Nhap'
+      AND (@TuKhoa IS NULL OR h.MaPhong LIKE '%' + @TuKhoa + '%' OR t.TenToa LIKE '%' + @TuKhoa + '%')
+      AND (@Thang IS NULL OR h.Thang = @Thang)
+      AND (@TrangThai IS NULL OR h.TrangThai = @TrangThai)
+    ORDER BY h.MaHD DESC;",
+                Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()),
+                Db.P("@Thang", string.IsNullOrWhiteSpace(thang) ? null : thang),
+                Db.P("@TrangThai", string.IsNullOrWhiteSpace(trangThai) ? null : trangThai));
             return View();
         }
 

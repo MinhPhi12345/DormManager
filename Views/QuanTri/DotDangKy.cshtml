@@ -2,21 +2,31 @@
 @{
     ViewData["Title"] = "Thiết lập cổng đăng ký KTX";
     DataTable ds = ViewBag.DsDot;
+    var now = DateTime.Now;
 }
 
 @* Thiết lập thời gian mở cổng đăng ký | View đơn giản -> style Inline *@
 @section Styles {
     <style>
-        .dot-form {
-            max-width: 560px;
+        .dot-form { max-width: 560px; }
+        .dot-card {
+            border: 1px solid #eef1f0; border-radius: .9rem; padding: 1rem 1.15rem;
+            transition: box-shadow .15s, border-color .15s;
         }
-
-        .dot-table thead th {
-            font-size: .78rem;
-            text-transform: uppercase;
-            color: #7a8580;
-            background: #fafbfa;
+        .dot-card:hover { box-shadow: 0 6px 16px rgba(20,40,35,.08); border-color: #dbe4e0; }
+        .dot-card.dot-dangmo { border-left: 4px solid #198754; }
+        .dot-card.dot-chuamo { border-left: 4px solid #2a7f8f; }
+        .dot-card.dot-dadong { border-left: 4px solid #c7ccc9; opacity: .82; }
+        .dot-loai-icon {
+            width: 40px; height: 40px; border-radius: .7rem; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center; font-size: 1.05rem; color: #fff;
         }
+        .dot-loai-icon.li-uutien { background: linear-gradient(135deg,#f2a516,#f7c15c); }
+        .dot-loai-icon.li-daitra { background: linear-gradient(135deg,#0d5c4d,#14806c); }
+        .dot-loai-icon.li-kyhe   { background: linear-gradient(135deg,#2a7f8f,#3aa4b8); }
+        .dot-progress { height: 6px; border-radius: 99px; background: #eef1f0; overflow: hidden; margin: .55rem 0 .3rem; }
+        .dot-progress > span { display: block; height: 100%; background: #198754; border-radius: 99px; }
+        .dot-meta { font-size: .78rem; color: #7a8580; }
     </style>
 }
 
@@ -24,7 +34,7 @@
     <div class="col-lg-5">
         <div class="card p-4 dot-form">
             <h2 class="h6 fw-bold mb-3"><i class="bi bi-calendar-plus me-2 text-dm"></i>Tạo đợt đăng ký mới</h2>
-            <form method="post" asp-action="TaoDot">
+            <form method="post" asp-action="TaoDot" id="formTaoDot">
                 <div class="mb-3">
                     <label class="form-label small">Tên đợt</label>
                     <input type="text" name="tenDot" class="form-control" placeholder="VD: Đăng ký đại trà HK1 2026-2027" required />
@@ -35,7 +45,7 @@
                         <select name="loaiDot" id="loaiDot" class="form-select">
                             <option value="DaiTra">Đại trà</option>
                             <option value="UuTien">Ưu tiên tân SV</option>
-                            <option value="He">Học kỳ hè</option>
+                            <option value="KyHe">Học kỳ hè</option>
                         </select>
                     </div>
                     <div class="col-6">
@@ -43,69 +53,104 @@
                         <input type="text" name="hocKy" class="form-control" placeholder="HK1 2026-2027" required />
                     </div>
                 </div>
-                <div class="row g-2 mb-2">
-                    <div class="col-6">
-                        <label class="form-label small">Mở cổng</label>
-                        <input type="datetime-local" name="ngayMo" class="form-control" required />
+
+                <div class="mb-3">
+                    <label class="form-label small">Mở cổng</label>
+                    <div class="row g-2">
+                        <div class="col-7">
+                            <input type="date" id="moNgay" class="form-control" required />
+                        </div>
+                        <div class="col-5">
+                            <input type="time" id="moGio" class="form-control" value="00:00" required />
+                        </div>
                     </div>
-                    <div class="col-6" id="khungNgayDong">
-                        <label class="form-label small">Đóng cổng</label>
-                        <input type="datetime-local" name="ngayDong" id="ngayDong" class="form-control" />
+                    <input type="hidden" name="ngayMo" id="ngayMo" />
+                </div>
+                <div class="mb-2" id="khungNgayDong">
+                    <label class="form-label small">Đóng cổng</label>
+                    <div class="row g-2">
+                        <div class="col-7">
+                            <input type="date" id="dongNgay" class="form-control" />
+                        </div>
+                        <div class="col-5">
+                            <input type="time" id="dongGio" class="form-control" value="00:00" />
+                        </div>
                     </div>
+                    <input type="hidden" name="ngayDong" id="ngayDong" />
                 </div>
-                <div class="small text-muted mb-3" id="ghiChuUuTien" style="display:none">
- <i class="bi bi-info-circle me-1"></i>Đợt ưu tiên tự động đóng sau <b>@ViewBag.TS1 ngày</b> kể từ khi mở (tham số TS1).
+                <div class="small text-muted mb-3 d-flex align-items-start gap-2" id="ghiChuUuTien" style="display:none">
+                    <i class="bi bi-info-circle mt-1"></i><span>Đợt ưu tiên tự động đóng sau <b>@ViewBag.TS1 ngày</b> kể từ khi mở (tham số TS1).</span>
                 </div>
-                <button type="submit" class="btn btn-dm w-100">Thiết lập đợt đăng ký</button>
+                <button type="submit" class="btn btn-dm w-100"><i class="bi bi-check-circle me-1"></i>Thiết lập đợt đăng ký</button>
             </form>
         </div>
     </div>
 
     <div class="col-lg-7">
-        <div class="card">
-            <div class="card-header bg-white fw-semibold">Các đợt đăng ký</div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 dot-table">
-                    <thead><tr><th>Tên đợt</th><th>Loại</th><th>Học kỳ</th><th>Mở → Đóng</th><th>Trạng thái</th><th></th></tr></thead>
-                    <tbody>
-                        @foreach (DataRow r in ds.Rows)
-                        {
-                            string tt = r["TrangThai"].ToString()!;
-                            <tr>
-                                <td class="fw-semibold">@r["TenDot"]</td>
-                                <td>@(r["LoaiDot"].ToString() switch { "UuTien" => "Ưu tiên", "He" => "Hè", _ => "Đại trà" })</td>
-                                <td>@r["HocKy"]</td>
-                                <td class="small">@(Convert.ToDateTime(r["NgayMo"]).ToString("dd/MM HH:mm")) → @(Convert.ToDateTime(r["NgayDong"]).ToString("dd/MM/yyyy HH:mm"))</td>
-                                <td>
-                                    @switch (tt)
-                                    {
-                                        case "DangMo":
-                                            <span class="badge text-bg-success">Đang mở</span>
-                                            ; break;
-                                        case "ChuaMo":
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h2 class="h6 fw-bold mb-0"><i class="bi bi-calendar-week me-2 text-dm"></i>Các đợt đăng ký</h2>
+            <span class="text-muted small">@ds.Rows.Count đợt</span>
+        </div>
+        <div class="d-flex flex-column gap-2">
+            @if (ds.Rows.Count == 0)
+            {
+                <div class="card p-4 text-center text-muted">Chưa có đợt đăng ký nào được thiết lập.</div>
+            }
+            @foreach (DataRow r in ds.Rows)
+            {
+                string tt = r["TrangThai"].ToString()!;
+                string loai = r["LoaiDot"].ToString()!;
+                var ngayMo = Convert.ToDateTime(r["NgayMo"]);
+                var ngayDong = Convert.ToDateTime(r["NgayDong"]);
+                double tongPhut = (ngayDong - ngayMo).TotalMinutes;
+                double daQuaPhut = (now - ngayMo).TotalMinutes;
+                int phanTram = tongPhut <= 0 ? 0 : (int)Math.Clamp(daQuaPhut / tongPhut * 100, 0, 100);
+                int soNgayConLai = (int)Math.Ceiling((ngayDong - now).TotalDays);
 
-                                            <span class="badge text-bg-info">Chưa mở</span>
-                                            ; break;
-                                        default:
+                string cardCls = tt switch { "DangMo" => "dot-dangmo", "ChuaMo" => "dot-chuamo", _ => "dot-dadong" };
+                string iconCls = loai switch { "UuTien" => "li-uutien", "KyHe" => "li-kyhe", _ => "li-daitra" };
+                string iconBi  = loai switch { "UuTien" => "bi-lightning-charge-fill", "KyHe" => "bi-sun-fill", _ => "bi-people-fill" };
 
-                                            <span class="badge text-bg-secondary">Đã đóng</span>
-                                            ; break;
-                                    }
-                                </td>
-                                <td>
-                                    @if (tt == "DangMo")
-                                    {
-                                        <form method="post" asp-action="DongDot" onsubmit="return confirm('Đóng cổng đăng ký đợt này ngay bây giờ?');">
-                                            <input type="hidden" name="maDot" value="@r["MaDot"]" />
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Đóng cổng</button>
-                                        </form>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+                <div class="dot-card @cardCls">
+                    <div class="d-flex align-items-start gap-3">
+                        <span class="dot-loai-icon @iconCls"><i class="bi @iconBi"></i></span>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="fw-semibold">@r["TenDot"] <span class="text-muted small">· @r["HocKy"]</span></div>
+                                @switch (tt)
+                                {
+                                    case "DangMo":
+                                        <span class="badge text-bg-success">Đang mở</span>
+                                        ; break;
+                                    case "ChuaMo":
+
+                                        <span class="badge text-bg-info">Chưa mở</span>
+                                        ; break;
+                                    default:
+
+                                        <span class="badge text-bg-secondary">Đã đóng</span>
+                                        ; break;
+                                }
+                            </div>
+                            <div class="dot-meta">@ngayMo.ToString("dd/MM HH:mm") → @ngayDong.ToString("dd/MM/yyyy HH:mm")</div>
+                            @if (tt == "DangMo")
+                            {
+                                <div class="dot-progress"><span style="width:@(phanTram)%"></span></div>
+                                <div class="dot-meta">Còn <b>@(soNgayConLai < 0 ? 0 : soNgayConLai) ngày</b> nữa đóng cổng</div>
+                            }
+                            @if (tt == "DangMo")
+                            {
+                                <form method="post" asp-action="DongDot" class="mt-2"
+                                      data-confirm-title="Đóng cổng đăng ký" data-confirm-level="warning"
+                                      data-confirm-message="Đóng cổng đăng ký đợt này ngay bây giờ?">
+                                    <input type="hidden" name="maDot" value="@r["MaDot"]" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Đóng cổng</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
     </div>
 </div>
@@ -114,13 +159,24 @@
     <script>
         // Đợt ưu tiên: ẩn ô ngày đóng (hệ thống tự tính theo TS1)
         const loaiDot = document.getElementById('loaiDot');
+        const dongNgay = document.getElementById('dongNgay');
+        const dongGio = document.getElementById('dongGio');
         function toggleNgayDong() {
             const uuTien = loaiDot.value === 'UuTien';
             document.getElementById('khungNgayDong').style.display = uuTien ? 'none' : '';
             document.getElementById('ghiChuUuTien').style.display = uuTien ? '' : 'none';
-            document.getElementById('ngayDong').required = !uuTien;
+            dongNgay.required = !uuTien;
+            dongGio.required = !uuTien;
         }
         loaiDot.addEventListener('change', toggleNgayDong);
         toggleNgayDong();
+
+        // Ghép riêng ô Ngày + Giờ thành datetime trước khi gửi form (server vẫn nhận 1 giá trị DateTime như cũ)
+        document.getElementById('formTaoDot').addEventListener('submit', function () {
+            document.getElementById('ngayMo').value = document.getElementById('moNgay').value + 'T' + document.getElementById('moGio').value;
+            if (dongNgay.value && dongGio.value) {
+                document.getElementById('ngayDong').value = dongNgay.value + 'T' + dongGio.value;
+            }
+        });
     </script>
 }

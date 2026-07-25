@@ -53,6 +53,20 @@ body {
 }
 .sidebar-footer { border-top: 1px solid rgba(255,255,255,.12); padding: .4rem 0; }
 
+/* ---------- Modal xác nhận dùng chung (thay confirm() mặc định) ---------- */
+.xn-modal { border: none; border-radius: 1rem; overflow: hidden; }
+.xn-icon-wrap {
+    width: 64px; height: 64px; border-radius: 50%; margin: 0 auto .9rem;
+    display: flex; align-items: center; justify-content: center; font-size: 1.7rem;
+}
+.xn-icon-wrap.xn-danger  { background: #fdeaea; color: #dc3545; }
+.xn-icon-wrap.xn-warning { background: #fdf1dc; color: #d98c0e; }
+.xn-icon-wrap.xn-success { background: #e3f3ec; color: var(--dm-primary); }
+.xn-title { font-weight: 700; margin-bottom: .35rem; }
+.xn-message { font-size: .9rem; }
+.btn-dm-accent { background: var(--dm-accent); border-color: var(--dm-accent); color: #fff; }
+.btn-dm-accent:hover { background: #d98c0e; border-color: #d98c0e; color: #fff; }
+
 /* ---------- Main / topbar ---------- */
 .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .app-topbar {
