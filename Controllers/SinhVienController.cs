@@ -8,6 +8,9 @@ namespace DormManager.Controllers
     public class SinhVienController : Controller
     {
         private string MSSV => HttpContext.Session.GetString("MSSV")!;
+        // QD05: SV quá hạn thanh toán bị khóa quyền đăng ký dịch vụ tiện ích phát sinh (đăng ký/gia hạn),
+        // nhưng vẫn đăng nhập và thanh toán được để tự gỡ khóa.
+        private bool BiKhoa => HttpContext.Session.GetString("BiKhoa") == "1";
 
         // ============ Thông tin tổng quan ============
         public IActionResult TongQuan()
@@ -85,6 +88,12 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult XacNhanDangKy(string maGiuong)
         {
+            if (BiKhoa)
+            {
+                TempData["Loi"] = "Tài khoản đang bị khóa quyền đăng ký do quá hạn thanh toán. Vui lòng thanh toán hết hóa đơn còn nợ trước.";
+                return RedirectToAction("TraCuuPhong");
+            }
+
             var (loi, giuong, dot) = KiemTraDangKy(maGiuong);
             if (loi != null || giuong == null || dot == null)
             {
@@ -171,6 +180,12 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult GiaHan(int maPhieu, int soThang)
         {
+            if (BiKhoa)
+            {
+                TempData["Loi"] = "Tài khoản đang bị khóa quyền gia hạn do quá hạn thanh toán. Vui lòng thanh toán hết hóa đơn còn nợ trước.";
+                return RedirectToAction("HopDong");
+            }
+
             var pd = Db.Query(@"SELECT * FROM PHIEUDANGKY WHERE MaPhieu = @MaPhieu AND MSSV = @MSSV AND TrangThai = 'DangO';", Db.P("@MaPhieu", maPhieu), Db.P("@MSSV", MSSV));
             if (pd.Rows.Count == 0) { TempData["Loi"] = "Không tìm thấy hợp đồng đang hiệu lực."; return RedirectToAction("HopDong"); }
 
@@ -238,11 +253,24 @@ namespace DormManager.Controllers
         }
 
         [HttpGet]
-        public IActionResult TaoDon(string loai = "PhanHoi") { ViewBag.Loai = loai; return View(); }
+        public IActionResult TaoDon(string loai = "PhanHoi")
+        {
+            if (!DangOPhong())
+            {
+                TempData["Loi"] = "Bạn cần đang ở một phòng trong ký túc xá mới có thể gửi đơn phản hồi/đề xuất.";
+                return RedirectToAction("DonYeuCau", new { loai });
+            }
+            ViewBag.Loai = loai; return View();
+        }
 
         [HttpPost]
         public IActionResult TaoDon(string loai, string tieuDe, string noiDung)
         {
+            if (!DangOPhong())
+            {
+                TempData["Loi"] = "Bạn cần đang ở một phòng trong ký túc xá mới có thể gửi đơn phản hồi/đề xuất.";
+                return RedirectToAction("DonYeuCau", new { loai });
+            }
             if (string.IsNullOrWhiteSpace(tieuDe) || string.IsNullOrWhiteSpace(noiDung))
             {
                 ViewBag.Loai = loai; ViewBag.Loi = "Vui lòng nhập đầy đủ tiêu đề và nội dung.";
@@ -254,6 +282,13 @@ namespace DormManager.Controllers
             return RedirectToAction("DonYeuCau", new { loai });
         }
 
+        /// <summary>SV chỉ được gửi đơn phản hồi/đề xuất khi đang có phòng hiệu lực (tránh đơn "ma" khi chưa ở KTX).</summary>
+        private bool DangOPhong()
+        {
+            var soLuong = Db.Scalar(@"SELECT COUNT(*) FROM PHIEUDANGKY WHERE MSSV = @MSSV AND TrangThai = 'DangO';", Db.P("@MSSV", MSSV));
+            return Convert.ToInt32(soLuong) > 0;
+        }
+
         // Chi tiết đơn
         public IActionResult ChiTietDon(int id)
         {
@@ -263,6 +298,26 @@ namespace DormManager.Controllers
             if (dt.Rows.Count == 0) return RedirectToAction("DonYeuCau");
             ViewBag.Don = dt.Rows[0];
             return View();
+        }
+
+        // Xóa đơn phản hồi/đề xuất - chỉ cho xóa khi đơn của chính mình và CHƯA được quản lý xử lý
+        [HttpPost]
+        public IActionResult XoaDon(int maDon)
+        {
+            var dt = Db.Query(@"SELECT LoaiDon, TrangThai FROM DONYEUCAU WHERE MaDon = @MaDon AND MSSV = @MSSV;",
+                Db.P("@MaDon", maDon), Db.P("@MSSV", MSSV));
+            if (dt.Rows.Count == 0) { TempData["Loi"] = "Không tìm thấy đơn."; return RedirectToAction("DonYeuCau"); }
+
+            string loai = dt.Rows[0]["LoaiDon"].ToString()!;
+            if (dt.Rows[0]["TrangThai"].ToString() != "ChoXuLy")
+            {
+                TempData["Loi"] = "Đơn đã được Ban quản lý tiếp nhận xử lý nên không thể xóa.";
+                return RedirectToAction("ChiTietDon", new { id = maDon });
+            }
+
+            Db.Exec(@"DELETE FROM DONYEUCAU WHERE MaDon = @MaDon AND MSSV = @MSSV;", Db.P("@MaDon", maDon), Db.P("@MSSV", MSSV));
+            TempData["ThanhCong"] = "Đã xóa đơn.";
+            return RedirectToAction("DonYeuCau", new { loai });
         }
 
         // ============ Lịch sử + tra cứu hóa đơn ============
@@ -313,7 +368,24 @@ namespace DormManager.Controllers
             string maGDCong = phuongThuc.ToUpper() + DateTime.Now.ToString("yyyyMMddHHmmss");
             SinhVienRepo.ThanhToan(maHD, MSSV, phuongThuc, hd.Rows[0]["TongTien"], maGDCong,
                 $"Thanh toán hóa đơn #{maHD} thành công qua {phuongThuc}. Mã giao dịch: {maGDCong}.");
-            TempData["ThanhCong"] = $"Thanh toán thành công qua {phuongThuc}! Mã giao dịch: {maGDCong}";
+
+            string thongBaoThem = "";
+            if (BiKhoa)
+            {
+                var conNo = Db.Scalar(@"SELECT COUNT(*) FROM HOADON h
+    JOIN GIUONG g ON g.MaPhong = h.MaPhong
+    JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.MSSV = @MSSV AND pd.TrangThai = 'DangO'
+    WHERE h.TrangThai = 'QuaHan';", Db.P("@MSSV", MSSV));
+                if (Convert.ToInt32(conNo) == 0)
+                {
+                    Db.Exec(@"UPDATE TAIKHOAN SET TrangThai = 'HoatDong'
+    WHERE MaTK = (SELECT MaTK FROM SINHVIEN WHERE MSSV = @MSSV) AND TrangThai = 'BiKhoa';", Db.P("@MSSV", MSSV));
+                    HttpContext.Session.SetString("BiKhoa", "0");
+                    thongBaoThem = " Bạn đã thanh toán hết nợ nên tài khoản được tự động mở khóa.";
+                }
+            }
+
+            TempData["ThanhCong"] = $"Thanh toán thành công qua {phuongThuc}! Mã giao dịch: {maGDCong}.{thongBaoThem}";
             return RedirectToAction("ChiTietHoaDon", new { id = maHD });
         }
     }

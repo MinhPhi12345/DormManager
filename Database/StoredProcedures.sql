@@ -222,7 +222,8 @@ BEGIN
 END
 GO
 
---: ghi nhận vi phạm khi quá hạn > TS4 ngày
+--: ghi nhận vi phạm khi quá hạn > TS4 ngày - CHẾ TÀI LŨY TIẾN (QD06): điểm phạt lần thứ N = TS6 x N,
+-- tức vi phạm càng nhiều lần thì điểm phạt cho lần mới càng nặng hơn (không còn cộng cố định TS6/lần).
 IF OBJECT_ID('sp_GhiNhanViPham', 'P') IS NOT NULL DROP PROCEDURE sp_GhiNhanViPham;
 GO
 CREATE PROCEDURE sp_GhiNhanViPham
@@ -231,16 +232,23 @@ CREATE PROCEDURE sp_GhiNhanViPham
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    ;WITH DsMoi AS (
+        SELECT sv.MSSV, h.MaHD, h.Thang,
+               ISNULL((SELECT COUNT(*) FROM VIPHAM v2 WHERE v2.MSSV = sv.MSSV), 0) + 1 AS LanThu
+        FROM HOADON h
+        JOIN GIUONG g ON g.MaPhong = h.MaPhong
+        JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.TrangThai = 'DangO'
+        JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
+        WHERE h.TrangThai = 'QuaHan'
+          AND DATEDIFF(DAY, h.HanThanhToan, GETDATE()) > @TS4
+          AND NOT EXISTS (SELECT 1 FROM VIPHAM v WHERE v.MaHD = h.MaHD AND v.MSSV = sv.MSSV)
+    )
     INSERT INTO VIPHAM (MSSV, MaHD, SoDiem, LyDo)
-    SELECT sv.MSSV, h.MaHD, @TS6,
- N'Hóa đơn ' + h.Thang + N' quá hạn thanh toán trên ' + CAST(@TS4 AS NVARCHAR) + N' ngày'
-    FROM HOADON h
-    JOIN GIUONG g ON g.MaPhong = h.MaPhong
-    JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.TrangThai = 'DangO'
-    JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
-    WHERE h.TrangThai = 'QuaHan'
-      AND DATEDIFF(DAY, h.HanThanhToan, GETDATE()) > @TS4
-      AND NOT EXISTS (SELECT 1 FROM VIPHAM v WHERE v.MaHD = h.MaHD AND v.MSSV = sv.MSSV);
+    SELECT MSSV, MaHD, @TS6 * LanThu,
+           N'Hóa đơn ' + Thang + N' quá hạn thanh toán trên ' + CAST(@TS4 AS NVARCHAR) + N' ngày (vi phạm lần ' +
+           CAST(LanThu AS NVARCHAR) + N' - chế tài lũy tiến: ' + CAST(@TS6 * LanThu AS NVARCHAR) + N' điểm)'
+    FROM DsMoi;
 END
 GO
 

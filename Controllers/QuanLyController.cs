@@ -286,8 +286,56 @@ namespace DormManager.Controllers
         [HttpPost]
         public IActionResult MoKhoa(int maTK)
         {
+            // Chỉ mở khóa khi SV đã hoàn tất nghĩa vụ tài chính (không còn hóa đơn quá hạn) -
+            // nếu không, job quét tự động (QuetHoaDonQuaHan) sẽ khóa lại ngay ở lần tải trang kế tiếp.
+            var conNo = Db.Scalar(@"SELECT COUNT(*) FROM HOADON h
+    JOIN GIUONG g ON g.MaPhong = h.MaPhong
+    JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.TrangThai = 'DangO'
+    JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
+    WHERE sv.MaTK = @MaTK AND h.TrangThai = 'QuaHan';", Db.P("@MaTK", maTK));
+            if (Convert.ToInt32(conNo) > 0)
+            {
+                TempData["Loi"] = "Không thể mở khóa: sinh viên vẫn còn hóa đơn quá hạn chưa thanh toán. Vui lòng yêu cầu sinh viên hoàn tất nghĩa vụ tài chính trước, hoặc dùng chức năng \"Xác nhận đã thu tiền\" nếu SV đã trả trực tiếp.";
+                return RedirectToAction("ViPham");
+            }
+
             QuanLyRepo.MoKhoa(maTK);   // sp_MoKhoa (transaction + gửi thông báo)
             TempData["ThanhCong"] = "Đã mở khóa tài khoản và gửi thông báo.";
+            return RedirectToAction("ViPham");
+        }
+
+        // Quản lý xác nhận đã thu tiền trực tiếp (tiền mặt/chuyển khoản tại văn phòng) hộ SV
+        // không tự đăng nhập thanh toán online được - đóng hết hóa đơn quá hạn rồi tự mở khóa luôn.
+        [HttpPost]
+        public IActionResult ThuTienMat(string mssv)
+        {
+            var dsNo = Db.Query(@"SELECT h.MaHD, h.TongTien FROM HOADON h
+    JOIN GIUONG g ON g.MaPhong = h.MaPhong
+    JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.MSSV = @MSSV AND pd.TrangThai = 'DangO'
+    WHERE h.TrangThai = 'QuaHan';", Db.P("@MSSV", mssv));
+
+            if (dsNo.Rows.Count == 0)
+            {
+                TempData["Loi"] = "Sinh viên này không còn hóa đơn quá hạn nào.";
+                return RedirectToAction("ViPham");
+            }
+
+            foreach (System.Data.DataRow r in dsNo.Rows)
+            {
+                int maHD = Convert.ToInt32(r["MaHD"]);
+                string maGDCong = "TIENMAT" + DateTime.Now.ToString("yyyyMMddHHmmss") + maHD;
+                // Ghi nhận dưới hình thức "NganHang" (thu trực tiếp tại văn phòng, đối soát thủ công) -
+                // không phát sinh giao dịch cổng thanh toán trực tuyến thật.
+                SinhVienRepo.ThanhToan(maHD, mssv, "NganHang", r["TongTien"], maGDCong,
+                    $"Quản lý đã xác nhận thu tiền mặt hóa đơn #{maHD} tại văn phòng.");
+            }
+
+            var tk = Db.Scalar(@"SELECT tk.MaTK FROM TAIKHOAN tk JOIN SINHVIEN sv ON sv.MaTK = tk.MaTK
+    WHERE sv.MSSV = @MSSV AND tk.TrangThai = 'BiKhoa';", Db.P("@MSSV", mssv));
+            if (tk != null)
+                QuanLyRepo.MoKhoa(Convert.ToInt32(tk));
+
+            TempData["ThanhCong"] = $"Đã xác nhận thu {dsNo.Rows.Count} hóa đơn quá hạn và mở khóa tài khoản (nếu đang bị khóa).";
             return RedirectToAction("ViPham");
         }
     }

@@ -35,17 +35,18 @@ namespace DormManager.Controllers
             }
 
             var row = dt.Rows[0];
-            if (row["TrangThai"].ToString() == "BiKhoa")
-            {
-                ViewBag.Loi = "Tài khoản đang bị khóa do vi phạm quy định thanh toán. Vui lòng liên hệ Ban quản lý.";
-                return View();
-            }
+            bool biKhoa = row["TrangThai"].ToString() == "BiKhoa";
+            // QD05: quá hạn thanh toán chỉ khóa quyền đăng ký dịch vụ tiện ích phát sinh,
+            // KHÔNG khóa đăng nhập - để SV vẫn vào được để tự thanh toán nợ và gỡ khóa.
+            // (Quản lý vẫn có thể khóa hẳn tài khoản qua "Cập nhật tài khoản" nếu cần, đó là
+            // trường hợp khác, không phải cờ BiKhoa tự động do quá hạn.)
 
             int maTK = (int)row["MaTK"];
             string vaiTro = row["VaiTro"].ToString()!;
             HttpContext.Session.SetInt32("MaTK", maTK);
             HttpContext.Session.SetString("VaiTro", vaiTro);
             HttpContext.Session.SetString("TenDangNhap", row["TenDangNhap"].ToString()!);
+            HttpContext.Session.SetString("BiKhoa", biKhoa ? "1" : "0");
 
             // Lấy họ tên + mã định danh theo vai trò
             if (vaiTro == "SV")

@@ -48,13 +48,14 @@
         <span><i class="bi bi-1-circle me-2"></i>Xem trước hóa đơn từ chỉ số đã nhập - tháng @thang</span>
         @if (xemTruoc.Rows.Count > 0 && dg != null)
         {
-            <form method="post" asp-action="TaoHoaDonThang" class="d-flex align-items-center gap-2">
+            <form method="post" asp-action="TaoHoaDonThang" class="d-flex align-items-center gap-2"
+                  data-confirm-title="Tạo hóa đơn hàng loạt" data-confirm-level="warning"
+                  data-confirm-message="Tạo hóa đơn (bản nháp) cho toàn bộ phòng bên dưới? Chỉ số sẽ bị chốt sau khi tạo.">
                 <input type="hidden" name="thang" value="@thang" />
                 <label class="small text-nowrap">Hạn TT sau</label>
                 <input type="number" name="hanThanhToanNgay" value="15" min="1" max="60" class="form-control form-control-sm" style="width:70px" />
                 <span class="small text-nowrap">ngày</span>
-                <button type="submit" class="btn btn-sm btn-dm text-nowrap"
-                        onclick="return confirm('Tạo hóa đơn (bản nháp) cho toàn bộ phòng bên dưới? Chỉ số sẽ bị chốt sau khi tạo.');">
+                <button type="submit" class="btn btn-sm btn-dm text-nowrap">
                     <i class="bi bi-receipt me-1"></i>Tạo @xemTruoc.Rows.Count hóa đơn
                 </button>
             </form>
@@ -136,7 +137,8 @@
                         <td>@(Convert.ToDateTime(r["HanThanhToan"]).ToString("dd/MM/yyyy"))</td>
                         <td class="text-end">
                             <form method="post" asp-action="GuiHoaDon" class="d-inline"
- onsubmit="return confirm('Gửi hóa đơn này? Hệ thống sẽ thông báo tới toàn bộ sinh viên trong phòng.');">
+                                  data-confirm-title="Gửi hóa đơn" data-confirm-level="warning"
+                                  data-confirm-message="Gửi hóa đơn này? Hệ thống sẽ thông báo tới toàn bộ sinh viên trong phòng.">
                                 <input type="hidden" name="maHD" value="@r["MaHD"]" />
                                 <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-send me-1"></i>Xác nhận gửi</button>
                             </form>

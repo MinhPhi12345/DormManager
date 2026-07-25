@@ -21,32 +21,66 @@
     <link rel="stylesheet" href="~/css/views/thongke.css" />
 }
 
+@{
+    decimal? phanTramDT = ViewBag.PhanTramDoanhThu;
+    string deltaClass = phanTramDT == null ? "flat" : phanTramDT > 0 ? "up" : phanTramDT < 0 ? "down" : "flat";
+    string deltaIcon = phanTramDT == null ? "bi-dash" : phanTramDT > 0 ? "bi-arrow-up-short" : phanTramDT < 0 ? "bi-arrow-down-short" : "bi-dash";
+    string deltaText = phanTramDT == null ? "Chưa đủ dữ liệu 2 tháng" : $"{(phanTramDT > 0 ? "+" : "")}{phanTramDT}% so với tháng trước";
+}
 <div class="row g-3 mb-3">
-    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-1"><i class="bi bi-door-open"></i></span><div class="tk-num">@ViewBag.TongPhong</div><div class="tk-label">Tổng số phòng</div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-2"><i class="bi bi-people"></i></span><div class="tk-num">@ViewBag.SVDangO</div><div class="tk-label">SV đang ở</div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-3"><i class="bi bi-columns-gap"></i></span><div class="tk-num">@ViewBag.GiuongTrong</div><div class="tk-label">Giường trống</div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-4"><i class="bi bi-receipt"></i></span><div class="tk-num">@ViewBag.HDChuaTT</div><div class="tk-label">HĐ chưa thanh toán</div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-5"><i class="bi bi-inboxes"></i></span><div class="tk-num">@ViewBag.DonChoXuLy</div><div class="tk-label">Đơn chờ xử lý</div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="tk-stat card p-3"><span class="tk-icon bg-6"><i class="bi bi-cash-stack"></i></span><div class="tk-num">@(Convert.ToDecimal(ViewBag.TongThu).ToString("N0"))đ</div><div class="tk-label">Tổng thu</div></div></div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <a class="tk-stat-link" asp-controller="QuanTri" asp-action="Phong" title="Xem danh sách phòng">
+            <div class="tk-stat card p-3"><i class="bi bi-arrow-right-short tk-arrow"></i><span class="tk-icon bg-1"><i class="bi bi-door-open"></i></span><div class="tk-num">@ViewBag.TongPhong</div><div class="tk-label">Tổng số phòng</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <a class="tk-stat-link" asp-controller="QuanLy" asp-action="DonDangKy" asp-route-trangThai="DangO" title="Xem sinh viên đang ở">
+            <div class="tk-stat card p-3"><i class="bi bi-arrow-right-short tk-arrow"></i><span class="tk-icon bg-2"><i class="bi bi-people"></i></span><div class="tk-num">@ViewBag.SVDangO</div><div class="tk-label">SV đang ở</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <a class="tk-stat-link" asp-controller="QuanTri" asp-action="Phong" title="Xem tình trạng giường trống">
+            <div class="tk-stat card p-3"><i class="bi bi-arrow-right-short tk-arrow"></i><span class="tk-icon bg-3"><i class="bi bi-columns-gap"></i></span><div class="tk-num">@ViewBag.GiuongTrong</div><div class="tk-label">Giường trống</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <a class="tk-stat-link" asp-controller="QuanTri" asp-action="HoaDon" title="Xem hóa đơn hệ thống">
+            <div class="tk-stat card p-3"><i class="bi bi-arrow-right-short tk-arrow"></i><span class="tk-icon bg-4"><i class="bi bi-receipt"></i></span><div class="tk-num">@ViewBag.HDChuaTT</div><div class="tk-label">HĐ chưa thanh toán</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <a class="tk-stat-link" asp-controller="QuanLy" asp-action="DonYeuCau" asp-route-trangThai="ChoXuLy" title="Xem đơn chờ xử lý">
+            <div class="tk-stat card p-3"><i class="bi bi-arrow-right-short tk-arrow"></i><span class="tk-icon bg-5"><i class="bi bi-inboxes"></i></span><div class="tk-num">@ViewBag.DonChoXuLy</div><div class="tk-label">Đơn chờ xử lý</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <a class="tk-stat-link" href="#chartDoanhThu" title="Xem biểu đồ doanh thu">
+            <div class="tk-stat card p-3">
+                <i class="bi bi-arrow-right-short tk-arrow"></i>
+                <span class="tk-icon bg-6"><i class="bi bi-cash-stack"></i></span>
+                <div class="tk-num">@(Convert.ToDecimal(ViewBag.TongThu).ToString("N0"))đ</div>
+                <div class="tk-label">Tổng thu</div>
+                <div class="tk-delta @deltaClass"><i class="bi @deltaIcon"></i>@deltaText</div>
+            </div>
+        </a>
+    </div>
 </div>
 
 <div class="row g-3">
-    <div class="col-lg-7">
-        <div class="card p-3 h-100">
+    <div class="col-lg-7 d-flex flex-column gap-3">
+        <div class="card p-3">
             <h3 class="tk-chart-title"><i class="bi bi-graph-up-arrow me-2 text-dm"></i>Doanh thu thanh toán theo tháng</h3>
-            <canvas id="chartDoanhThu" height="220"></canvas>
+            <div style="height:190px"><canvas id="chartDoanhThu"></canvas></div>
+        </div>
+        <div class="card p-3 flex-grow-1">
+            <h3 class="tk-chart-title"><i class="bi bi-bar-chart me-2 text-dm"></i>Sản lượng điện / nước tiêu thụ theo kỳ</h3>
+            <div style="height:190px"><canvas id="chartSanLuong"></canvas></div>
         </div>
     </div>
     <div class="col-lg-5">
         <div class="card p-3 h-100">
             <h3 class="tk-chart-title"><i class="bi bi-pie-chart me-2 text-dm"></i>Đơn yêu cầu theo trạng thái</h3>
-            <canvas id="chartDon" height="220"></canvas>
-        </div>
-    </div>
-    <div class="col-12">
-        <div class="card p-3">
-            <h3 class="tk-chart-title"><i class="bi bi-bar-chart me-2 text-dm"></i>Sản lượng điện / nước tiêu thụ theo kỳ</h3>
-            <canvas id="chartSanLuong" height="110"></canvas>
+            <div style="height:420px"><canvas id="chartDon"></canvas></div>
         </div>
     </div>
 </div>
@@ -55,6 +89,18 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
         const mau = { xanh: '#0d5c4d', vang: '#f2a516', xanhNhat: '#2a7f8f', xam: '#97a09b', do: '#dc3545', tim: '#7161ba' };
+        Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
+        Chart.defaults.plugins.tooltip.padding = 10;
+        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(8,66,55,.95)';
+        Chart.defaults.animation.duration = 700;
+        Chart.defaults.animation.easing = 'easeOutQuart';
+
+        function gradient(ctx, area, colorTop, colorBottom) {
+            const g = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+            g.addColorStop(0, colorTop); g.addColorStop(1, colorBottom);
+            return g;
+        }
 
         new Chart(document.getElementById('chartDoanhThu'), {
             type: 'bar',
@@ -63,11 +109,18 @@
                 datasets: [{
                     label: 'Doanh thu (đ)',
                     data: @Html.Raw(dtValues),
-                    backgroundColor: mau.xanh, borderRadius: 6
+                    backgroundColor: ctx => ctx.chart.chartArea ? gradient(ctx.chart.ctx, ctx.chart.chartArea, '#14806c', mau.xanh) : mau.xanh,
+                    hoverBackgroundColor: '#0a4438',
+                    borderRadius: 8, maxBarThickness: 56
                 }]
             },
-            options: { plugins: { legend: { display: false } },
-                scales: { y: { ticks: { callback: v => v.toLocaleString('vi') + 'đ' } } } }
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false },
+                    tooltip: { callbacks: { label: c => ' ' + c.parsed.y.toLocaleString('vi') + 'đ' } } },
+                scales: { y: { grid: { color: '#eef1f0' }, ticks: { callback: v => (v / 1000) + 'k' } },
+                          x: { grid: { display: false } } }
+            }
         });
 
         new Chart(document.getElementById('chartDon'), {
@@ -75,9 +128,10 @@
             data: {
                 labels: @Html.Raw(donLabels),
                 datasets: [{ data: @Html.Raw(donValues),
-                    backgroundColor: [mau.xam, mau.xanhNhat, mau.xanh, mau.do] }]
+                    backgroundColor: [mau.xam, mau.xanhNhat, mau.xanh, mau.do],
+                    hoverOffset: 10, borderWidth: 3, borderColor: '#fff' }]
             },
-            options: { plugins: { legend: { position: 'bottom' } } }
+            options: { cutout: '68%', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } } } }
         });
 
         new Chart(document.getElementById('chartSanLuong'), {
@@ -85,11 +139,20 @@
             data: {
                 labels: @Html.Raw(slLabels),
                 datasets: [
-                    { label: 'Điện (kWh)', data: @Html.Raw(slKwh), borderColor: mau.vang, backgroundColor: mau.vang, tension: .3 },
-                    { label: 'Nước (m³)', data: @Html.Raw(slM3), borderColor: mau.xanhNhat, backgroundColor: mau.xanhNhat, tension: .3 }
+                    { label: 'Điện (kWh)', data: @Html.Raw(slKwh), borderColor: mau.vang,
+                      backgroundColor: ctx => ctx.chart.chartArea ? gradient(ctx.chart.ctx, ctx.chart.chartArea, 'rgba(242,165,22,.28)', 'rgba(242,165,22,0)') : 'rgba(242,165,22,.15)',
+                      tension: .35, fill: true, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 },
+                    { label: 'Nước (m³)', data: @Html.Raw(slM3), borderColor: mau.xanhNhat,
+                      backgroundColor: ctx => ctx.chart.chartArea ? gradient(ctx.chart.ctx, ctx.chart.chartArea, 'rgba(42,127,143,.28)', 'rgba(42,127,143,0)') : 'rgba(42,127,143,.15)',
+                      tension: .35, fill: true, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 }
                 ]
             },
-            options: { plugins: { legend: { position: 'bottom' } } }
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } } },
+                scales: { y: { grid: { color: '#eef1f0' } }, x: { grid: { display: false } } },
+                interaction: { mode: 'index', intersect: false }
+            }
         });
     </script>
 }

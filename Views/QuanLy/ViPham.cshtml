@@ -74,10 +74,11 @@
                         <td>
                             @if (biKhoa)
                             {
-                                <form method="post" asp-action="MoKhoa" class="d-inline"
-                                      onsubmit="return confirm('Xác nhận mở khóa tài khoản này? Chỉ mở khi sinh viên đã hoàn tất nghĩa vụ tài chính.');">
-                                    <input type="hidden" name="maTK" value="@r["MaTK"]" />
-                                    <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-unlock me-1"></i>Mở khóa</button>
+                                <form method="post" asp-action="ThuTienMat" class="d-inline"
+                                      data-confirm-title="Xác nhận thu tiền và mở khóa" data-confirm-level="success"
+                                      data-confirm-message="Xác nhận đã thu tiền hóa đơn quá hạn của sinh viên này (tiền mặt/chuyển khoản tại văn phòng)? Hệ thống sẽ đóng hết hóa đơn quá hạn và tự động mở khóa tài khoản.">
+                                    <input type="hidden" name="mssv" value="@r["MSSV"]" />
+                                    <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-cash-coin me-1"></i>Xác nhận thu tiền &amp; mở khóa</button>
                                 </form>
                             }
                         </td>

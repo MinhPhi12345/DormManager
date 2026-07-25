@@ -92,7 +92,8 @@
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <form method="post" asp-action="XoaPhong" class="d-inline"
- onsubmit="return confirm('Xóa phòng @r["MaPhong"]? Phòng có dữ liệu lịch sử sẽ chuyển sang Ngừng sử dụng.');">
+                                  data-confirm-title="Xóa phòng" data-confirm-level="danger"
+                                  data-confirm-message="Xóa phòng @r["MaPhong"]? Phòng có dữ liệu lịch sử sẽ chuyển sang Ngừng sử dụng.">
                                 <input type="hidden" name="maPhong" value="@r["MaPhong"]" />
                                 <button type="submit" class="btn btn-sm btn-outline-danger" @(soSV > 0 ? "disabled" : "")><i class="bi bi-trash"></i></button>
                             </form>
