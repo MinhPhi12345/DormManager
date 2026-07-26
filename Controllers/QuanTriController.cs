@@ -10,23 +10,22 @@ namespace DormManager.Controllers
         // ============ Tổng quan thống kê ============
         public IActionResult ThongKe()
         {
-            // sp_ThongKe: 1 lượt gọi -> 4 result set (6 chỉ số, doanh thu, sản lượng, đơn theo trạng thái)
+            // sp_ThongKe: 1 lượt gọi -> 4 result set
             var ds = QuanTriRepo.ThongKe();
             var chiSo = ds.Tables[0].Rows[0];
 
-            ViewBag.TongPhong    = chiSo["TongPhong"];
-            ViewBag.SVDangO      = chiSo["SVDangO"];
-            ViewBag.HDChuaTT     = chiSo["HDChuaTT"];
-            ViewBag.DonChoXuLy   = chiSo["DonChoXuLy"];
-            ViewBag.GiuongTrong  = chiSo["GiuongTrong"];
-            ViewBag.TongThu      = chiSo["TongThu"];
+            ViewBag.TongPhong = chiSo["TongPhong"];
+            ViewBag.SVDangO = chiSo["SVDangO"];
+            ViewBag.HDChuaTT = chiSo["HDChuaTT"];
+            ViewBag.DonChoXuLy = chiSo["DonChoXuLy"];
+            ViewBag.GiuongTrong = chiSo["GiuongTrong"];
+            ViewBag.TongThu = chiSo["TongThu"];
 
-            ViewBag.DoanhThu  = ds.Tables[1];
-            ViewBag.SanLuong  = ds.Tables[2];
+            ViewBag.DoanhThu = ds.Tables[1];
+            ViewBag.SanLuong = ds.Tables[2];
             ViewBag.DonTheoTT = ds.Tables[3];
 
-            // % tăng/giảm doanh thu tháng gần nhất so với tháng liền trước - tính từ dữ liệu
-            // đã có sẵn ở Result set 2 (ds.Tables[1]), KHÔNG cần thêm truy vấn/SP mới.
+            // % tăng/giảm doanh thu tháng gần nhất so với tháng liền trước
             var dt = ds.Tables[1];
             decimal? phanTramDoanhThu = null;
             if (dt.Rows.Count >= 2)
@@ -35,7 +34,21 @@ namespace DormManager.Controllers
                 decimal thangTruoc = Convert.ToDecimal(dt.Rows[dt.Rows.Count - 2]["TongTien"]);
                 if (thangTruoc > 0) phanTramDoanhThu = Math.Round((thangNay - thangTruoc) / thangTruoc * 100, 1);
             }
-            ViewBag.PhanTramDoanhThu = phanTramDoanhThu; // null nếu không đủ dữ liệu 2 tháng để so sánh
+            ViewBag.PhanTramDoanhThu = phanTramDoanhThu;
+
+            // CẬP NHẬT: Tính tổng các khoản thu của toàn bộ thời gian (hoặc tháng mới nhất) để vẽ biểu đồ tròn
+            decimal tongTienPhong = 0, tongTienDien = 0, tongTienNuoc = 0;
+            foreach (System.Data.DataRow r in dt.Rows)
+            {
+                // Ở đây ta cộng dồn tất cả các tháng. 
+                // Nếu muốn chỉ lấy tháng mới nhất, bạn có thể chỉ lấy dòng dt.Rows[dt.Rows.Count - 1]
+                tongTienPhong += r["TongTienPhong"] != DBNull.Value ? Convert.ToDecimal(r["TongTienPhong"]) : 0;
+                tongTienDien += r["TongTienDien"] != DBNull.Value ? Convert.ToDecimal(r["TongTienDien"]) : 0;
+                tongTienNuoc += r["TongTienNuoc"] != DBNull.Value ? Convert.ToDecimal(r["TongTienNuoc"]) : 0;
+            }
+
+            // Truyền 3 mảng giá trị ra View
+            ViewBag.TyTrongDoanhThu = new decimal[] { tongTienPhong, tongTienDien, tongTienNuoc };
 
             return View();
         }

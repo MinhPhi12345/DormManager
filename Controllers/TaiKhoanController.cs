@@ -1,3 +1,4 @@
+using System.Data;
 using DormManager.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
@@ -100,6 +101,66 @@ namespace DormManager.Controllers
             // Mô phỏng gửi email đặt lại mật khẩu qua Dịch vụ Email/SMS
             ViewBag.ThanhCong = $"Yêu cầu đặt lại mật khẩu đã được gửi tới email {email}. Vui lòng kiểm tra hộp thư (mô phỏng).";
             return View();
+        }
+
+        // ============ Đổi mật khẩu ============
+        [HttpGet]
+        public IActionResult DoiMatKhau()
+        {
+            // Kiểm tra người dùng đã đăng nhập chưa
+            if (HttpContext.Session.GetInt32("MaTK") == null)
+            {
+                return RedirectToAction("DangNhap");
+            }
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult DoiMatKhau(string matKhauCu, string matKhauMoi, string xacNhanMatKhau)
+        {
+            if (HttpContext.Session.GetInt32("MaTK") == null)
+            {
+                return RedirectToAction("DangNhap");
+            }
+
+            if (string.IsNullOrWhiteSpace(matKhauCu) || string.IsNullOrWhiteSpace(matKhauMoi) || string.IsNullOrWhiteSpace(xacNhanMatKhau))
+            {
+                ViewBag.Loi = "Vui lòng nhập đầy đủ các trường thông tin.";
+                return View();
+            }
+
+            if (matKhauMoi != xacNhanMatKhau)
+            {
+                ViewBag.Loi = "Mật khẩu xác nhận không khớp với mật khẩu mới.";
+                return View();
+            }
+
+            if (matKhauMoi.Length < 6)
+            {
+                ViewBag.Loi = "Mật khẩu mới phải có ít nhất 6 ký tự.";
+                return View();
+            }
+
+            int maTK = HttpContext.Session.GetInt32("MaTK").Value;
+            string mkCuHash = AuthHelper.Sha256(matKhauCu);
+
+            // Kiểm tra mật khẩu cũ
+            var dt = Db.Query("SELECT MaTK FROM TAIKHOAN WHERE MaTK = @MaTK AND MatKhau = @MatKhau",
+                Db.P("@MaTK", maTK), Db.P("@MatKhau", mkCuHash));
+
+            if (dt.Rows.Count == 0)
+            {
+                ViewBag.Loi = "Mật khẩu hiện tại không chính xác.";
+                return View();
+            }
+
+            // Mã hóa mật khẩu mới và lưu vào CSDL
+            string mkMoiHash = AuthHelper.Sha256(matKhauMoi);
+            Db.Exec("UPDATE TAIKHOAN SET MatKhau = @MatKhauMoi WHERE MaTK = @MaTK",
+                Db.P("@MatKhauMoi", mkMoiHash), Db.P("@MaTK", maTK));
+
+            TempData["ThanhCong"] = "Đổi mật khẩu thành công!";
+            return RedirectToAction("DoiMatKhau");
         }
 
         // ============ Đăng xuất ============
