@@ -66,8 +66,18 @@
     {
         <div class="text-muted small fst-italic">Ban quản lý chưa phản hồi đơn này.</div>
     }
-
-    <div class="mt-4">
+    <div class="mt-4 d-flex gap-2">
         <a asp-action="DonYeuCau" asp-route-loai="@d["LoaiDon"]" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Trở về danh sách</a>
+
+        @* Bổ sung nút xóa ngay trong trang chi tiết nếu đơn vẫn đang chờ xử lý *@
+        @if (d["TrangThai"].ToString() == "ChoXuLy")
+        {
+            <form method="post" asp-action="XoaDon" class="d-inline"
+                  data-confirm-title="Xóa đơn yêu cầu" data-confirm-level="danger"
+                  data-confirm-message="Bạn có chắc chắn muốn hủy và xóa đơn này không?">
+                <input type="hidden" name="maDon" value="@d["MaDon"]" />
+                <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash me-1"></i>Hủy đơn này</button>
+            </form>
+        }
     </div>
 </div>

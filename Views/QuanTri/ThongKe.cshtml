@@ -14,6 +14,9 @@
     var donLabels = JsonSerializer.Serialize(donTT.Rows.Cast<DataRow>().Select(r =>
         r["TrangThai"].ToString() switch { "ChoXuLy" => "Chờ xử lý", "DangXuLy" => "Đang xử lý", "DaXuLy" => "Đã xử lý", _ => "Từ chối" }));
     var donValues = JsonSerializer.Serialize(donTT.Rows.Cast<DataRow>().Select(r => Convert.ToInt32(r["SoLuong"])));
+
+    // Dữ liệu cho biểu đồ tròn mới (Tỷ trọng doanh thu)
+    var tyTrongValues = JsonSerializer.Serialize(ViewBag.TyTrongDoanhThu);
 }
 
 @* Thống kê tổng quan | View phức tạp -> style External + Chart.js *@
@@ -77,10 +80,14 @@
             <div style="height:190px"><canvas id="chartSanLuong"></canvas></div>
         </div>
     </div>
-    <div class="col-lg-5">
-        <div class="card p-3 h-100">
-            <h3 class="tk-chart-title"><i class="bi bi-pie-chart me-2 text-dm"></i>Đơn yêu cầu theo trạng thái</h3>
-            <div style="height:420px"><canvas id="chartDon"></canvas></div>
+    <div class="col-lg-5 d-flex flex-column gap-3">
+        <div class="card p-3">
+            <h3 class="tk-chart-title"><i class="bi bi-pie-chart me-2 text-dm"></i>Chi tiết các khoản thu</h3>
+            <div style="height:210px"><canvas id="chartTyTrong"></canvas></div>
+        </div>
+        <div class="card p-3 flex-grow-1">
+            <h3 class="tk-chart-title"><i class="bi bi-inboxes me-2 text-dm"></i>Đơn yêu cầu theo trạng thái</h3>
+            <div style="height:200px"><canvas id="chartDon"></canvas></div>
         </div>
     </div>
 </div>
@@ -88,7 +95,7 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
-        const mau = { xanh: '#0d5c4d', vang: '#f2a516', xanhNhat: '#2a7f8f', xam: '#97a09b', do: '#dc3545', tim: '#7161ba' };
+        const mau = { xanh: '#0d5c4d', vang: '#f2a516', xanhNhat: '#2a7f8f', xam: '#97a09b', do: '#dc3545', tim: '#7161ba', cam: '#d96a3b' };
         Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
         Chart.defaults.plugins.tooltip.padding = 10;
         Chart.defaults.plugins.tooltip.cornerRadius = 8;
@@ -116,22 +123,57 @@
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false },
-                    tooltip: { callbacks: { label: c => ' ' + c.parsed.y.toLocaleString('vi') + 'đ' } } },
-                scales: { y: { grid: { color: '#eef1f0' }, ticks: { callback: v => (v / 1000) + 'k' } },
-                          x: { grid: { display: false } } }
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => ' ' + c.parsed.y.toLocaleString('vi') + 'đ' } }
+                },
+                scales: {
+                    y: { grid: { color: '#eef1f0' }, ticks: { callback: v => (v / 1000) + 'k' } },
+                    x: { grid: { display: false } }
+                }
             }
         });
 
+        // Biểu đồ Doughnut (Đơn yêu cầu)
         new Chart(document.getElementById('chartDon'), {
             type: 'doughnut',
             data: {
                 labels: @Html.Raw(donLabels),
-                datasets: [{ data: @Html.Raw(donValues),
+                datasets: [{
+                    data: @Html.Raw(donValues),
                     backgroundColor: [mau.xam, mau.xanhNhat, mau.xanh, mau.do],
-                    hoverOffset: 10, borderWidth: 3, borderColor: '#fff' }]
+                    hoverOffset: 10, borderWidth: 3, borderColor: '#fff'
+                }]
             },
-            options: { cutout: '68%', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } } } }
+            options: {
+                cutout: '68%',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { usePointStyle: true, padding: 16 } }
+                }
+            }
+        });
+
+        // Biểu đồ Pie mới (Tỷ trọng các khoản thu)
+        new Chart(document.getElementById('chartTyTrong'), {
+            type: 'pie', // Sử dụng Pie Chart
+            data: {
+                labels: ['Tiền phòng & Phí DV', 'Tiền điện', 'Tiền nước'],
+                datasets: [{
+                    data: @Html.Raw(tyTrongValues),
+                    backgroundColor: [mau.xanh, mau.vang, mau.xanhNhat],
+                    hoverOffset: 10, borderWidth: 3, borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { usePointStyle: true, padding: 16 } },
+                    tooltip: { callbacks: { label: c => ' ' + c.parsed.toLocaleString('vi') + 'đ' } }
+                }
+            }
         });
 
         new Chart(document.getElementById('chartSanLuong'), {
@@ -139,12 +181,16 @@
             data: {
                 labels: @Html.Raw(slLabels),
                 datasets: [
-                    { label: 'Điện (kWh)', data: @Html.Raw(slKwh), borderColor: mau.vang,
-                      backgroundColor: ctx => ctx.chart.chartArea ? gradient(ctx.chart.ctx, ctx.chart.chartArea, 'rgba(242,165,22,.28)', 'rgba(242,165,22,0)') : 'rgba(242,165,22,.15)',
-                      tension: .35, fill: true, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 },
-                    { label: 'Nước (m³)', data: @Html.Raw(slM3), borderColor: mau.xanhNhat,
-                      backgroundColor: ctx => ctx.chart.chartArea ? gradient(ctx.chart.ctx, ctx.chart.chartArea, 'rgba(42,127,143,.28)', 'rgba(42,127,143,0)') : 'rgba(42,127,143,.15)',
-                      tension: .35, fill: true, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 }
+                    {
+                        label: 'Điện (kWh)', data: @Html.Raw(slKwh), borderColor: mau.vang,
+                        backgroundColor: ctx => ctx.chart.chartArea ? gradient(ctx.chart.ctx, ctx.chart.chartArea, 'rgba(242,165,22,.28)', 'rgba(242,165,22,0)') : 'rgba(242,165,22,.15)',
+                        tension: .35, fill: true, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5
+                    },
+                    {
+                        label: 'Nước (m³)', data: @Html.Raw(slM3), borderColor: mau.xanhNhat,
+                        backgroundColor: ctx => ctx.chart.chartArea ? gradient(ctx.chart.ctx, ctx.chart.chartArea, 'rgba(42,127,143,.28)', 'rgba(42,127,143,0)') : 'rgba(42,127,143,.15)',
+                        tension: .35, fill: true, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5
+                    }
                 ]
             },
             options: {

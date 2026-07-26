@@ -521,11 +521,19 @@ BEGIN
         (SELECT ISNULL(SUM(SoGiuongTrong),0) FROM PHONG WHERE TrangThai = 'HoatDong') AS GiuongTrong,
         (SELECT ISNULL(SUM(SoTien),0) FROM THANHTOAN WHERE KetQua = 'ThanhCong') AS TongThu;
 
-    -- Result set 2: Doanh thu theo tháng
-    SELECT FORMAT(ThoiGian, 'MM/yyyy') AS Thang, SUM(SoTien) AS TongTien
-    FROM THANHTOAN WHERE KetQua = 'ThanhCong'
-    GROUP BY FORMAT(ThoiGian, 'MM/yyyy'), YEAR(ThoiGian), MONTH(ThoiGian)
-    ORDER BY YEAR(ThoiGian), MONTH(ThoiGian);
+    -- Result set 2: Doanh thu theo tháng (CẬP NHẬT: Thêm tính tổng riêng từng khoản)
+    SELECT FORMAT(t.ThoiGian, 'MM/yyyy') AS Thang, 
+           SUM(t.SoTien) AS TongTien,
+           -- Do bảng THANHTOAN không lưu chi tiết từng khoản, ta join lại với HOADON
+           -- để bóc tách tỉ lệ (nếu thanh toán một phần thì tính theo tỉ lệ, nhưng ở đồ án này mặc định thanh toán 100% hóa đơn)
+           SUM(h.TienPhong) AS TongTienPhong,
+           SUM(h.TienDien) AS TongTienDien,
+           SUM(h.TienNuoc) AS TongTienNuoc
+    FROM THANHTOAN t
+    JOIN HOADON h ON t.MaHD = h.MaHD
+    WHERE t.KetQua = 'ThanhCong'
+    GROUP BY FORMAT(t.ThoiGian, 'MM/yyyy'), YEAR(t.ThoiGian), MONTH(t.ThoiGian)
+    ORDER BY YEAR(t.ThoiGian), MONTH(t.ThoiGian);
 
     -- Result set 3: Sản lượng điện nước theo tháng
     SELECT Thang, SUM(DienCuoiKy - DienDauKy) AS Kwh, SUM(NuocCuoiKy - NuocDauKy) AS M3
