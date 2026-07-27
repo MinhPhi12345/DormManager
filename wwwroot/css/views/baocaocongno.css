@@ -1,0 +1,12 @@
+/* ===== Báo cáo công nợ sinh viên - Quản trị viên (External CSS) ===== */
+.bcn-table thead th {
+    font-size: .76rem; text-transform: uppercase; letter-spacing: .04em;
+    color: #7a8580; background: #fafbfa; white-space: nowrap;
+}
+.bcn-table td { vertical-align: middle; }
+.row-urgent { background: #fff6f6; }
+.row-urgent td:first-child { border-left: 3px solid #dc3545; }
+
+@media (max-width: 767.98px) {
+    .bcn-table { font-size: .85rem; }
+}

@@ -24,6 +24,7 @@
                     <option value="PhanHoi" selected="@(q["loai"] == "PhanHoi")">Phản hồi</option>
                     <option value="DeXuat" selected="@(q["loai"] == "DeXuat")">Đề xuất</option>
                     <option value="TraPhong" selected="@(q["loai"] == "TraPhong")">Trả phòng</option>
+                    <option value="ChuyenPhong" selected="@(q["loai"] == "ChuyenPhong")">Chuyển phòng</option>
                 </select>
             </div>
             <div class="col-4 col-md-2">
@@ -76,6 +77,7 @@
                             {
                                 "PhanHoi" => "Phản hồi",
                                 "TraPhong" => "Trả phòng",
+                                "ChuyenPhong" => "Chuyển phòng",
                                 _ => "Đề xuất"
                             })
                     </td>
