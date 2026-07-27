@@ -1,0 +1,37 @@
+/* ===== BM18 - Chi tiết hóa đơn & thanh toán (External CSS) ===== */
+.invoice { overflow: hidden; }
+.invoice-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    background: linear-gradient(120deg, #0d5c4d, #12735f);
+    color: #fff; padding: 1rem 1.25rem;
+}
+.invoice-title { font-weight: 800; letter-spacing: .5px; }
+
+.invoice-table thead th {
+    font-size: .76rem; text-transform: uppercase; letter-spacing: .04em;
+    color: #7a8580; background: #fafbfa;
+}
+.invoice-table .idx { font-size: .75rem; color: #97a09b; }
+.invoice-total td {
+    background: #eef5f2; font-size: 1.05rem; color: #0d5c4d;
+    border-top: 2px solid #0d5c4d;
+}
+
+.pay-card { border-top: 4px solid #f2a516; }
+.pay-methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.pay-method input { display: none; }
+.pay-method-box {
+    display: flex; flex-direction: column; align-items: center; gap: .25rem;
+    border: 2px solid #dee5e2; border-radius: .6rem;
+    padding: .7rem .3rem; font-size: .82rem; cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.pay-method-box .bi { font-size: 1.3rem; color: #0d5c4d; }
+.pay-method input:checked + .pay-method-box {
+    border-color: #0d5c4d; background: #eef5f2; font-weight: 600;
+}
+
+@media (max-width: 575.98px) {
+    .pay-methods { grid-template-columns: 1fr 1fr 1fr; }
+    .invoice-head { flex-direction: column; gap: .5rem; }
+}

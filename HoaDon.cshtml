@@ -1,0 +1,151 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Lập & gửi hóa đơn";
+    DataTable xemTruoc = ViewBag.DsXemTruoc;
+    DataTable dsNhap = ViewBag.DsNhap;
+    DataRow? dg = ViewBag.DonGia as DataRow;
+    string thang = ViewBag.Thang;
+}
+
+@* Tạo hóa đơn + Xác nhận gửi | View phức tạp -> style External *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/taohoadon.css" />
+}
+
+<div class="card mb-3">
+    <div class="card-body d-flex flex-wrap align-items-end gap-3">
+        <form method="get" class="d-flex align-items-end gap-2">
+            <div>
+                <label class="form-label small mb-1">Kỳ hóa đơn (MM/yyyy)</label>
+                <input type="text" name="thang" value="@thang" class="form-control" style="max-width:160px" />
+            </div>
+            <button class="btn btn-dm">Xem kỳ</button>
+        </form>
+        @if (dg != null)
+        {
+            <div class="thd-price ms-auto">
+                <span><i class="bi bi-lightning-charge-fill text-warning"></i> @(Convert.ToDecimal(dg["GiaDien"]).ToString("N0"))đ/kWh</span>
+                <span><i class="bi bi-droplet-fill text-info"></i> @(Convert.ToDecimal(dg["GiaNuoc"]).ToString("N0"))đ/m³</span>
+                <span><i class="bi bi-gear-fill text-secondary"></i> Phí DV: @(Convert.ToDecimal(dg["PhiDichVu"]).ToString("N0"))đ</span>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-danger py-2 small mb-0 ms-auto">Chưa có biểu giá hiệu lực! Yêu cầu QTV cấu hình.</div>
+        }
+    </div>
+</div>
+
+<div class="alert alert-light border small">
+    <i class="bi bi-info-circle me-1 text-dm"></i>
+    Cột <b>SV ở</b> chỉ tính sinh viên đã ở <b>trọn vẹn từ đầu tháng</b> này. Sinh viên mới dọn vào giữa/cuối tháng
+    chưa được tính tiền phòng tháng này, bắt đầu tính từ tháng kế tiếp.
+</div>
+
+@* ===== Bước 1: Xem trước & tạo hóa đơn hàng loạt ===== *@
+<div class="card mb-3">
+    <div class="card-header thd-header">
+        <span><i class="bi bi-1-circle me-2"></i>Xem trước hóa đơn từ chỉ số đã nhập - tháng @thang</span>
+        @if (xemTruoc.Rows.Count > 0 && dg != null)
+        {
+            <form method="post" asp-action="TaoHoaDonThang" class="d-flex align-items-center gap-2"
+                  data-confirm-title="Tạo hóa đơn hàng loạt" data-confirm-level="warning"
+                  data-confirm-message="Tạo hóa đơn (bản nháp) cho toàn bộ phòng bên dưới? Chỉ số sẽ bị chốt sau khi tạo.">
+                <input type="hidden" name="thang" value="@thang" />
+                <label class="small text-nowrap">Hạn TT sau</label>
+                <input type="number" name="hanThanhToanNgay" value="15" min="1" max="60" class="form-control form-control-sm" style="width:70px" />
+                <span class="small text-nowrap">ngày</span>
+                <button type="submit" class="btn btn-sm btn-dm text-nowrap">
+                    <i class="bi bi-receipt me-1"></i>Tạo @xemTruoc.Rows.Count hóa đơn
+                </button>
+            </form>
+        }
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 thd-table">
+            <thead>
+                <tr>
+                    <th>Phòng</th>
+                    <th class="text-center">SV ở (đủ tháng)</th>
+                    <th class="text-end">Điện (kWh)</th>
+                    <th class="text-end">Nước (m³)</th>
+                    <th class="text-end">Tiền phòng</th>
+                    <th class="text-end">Tiền điện</th>
+                    <th class="text-end">Tiền nước</th>
+                    <th class="text-end">Tổng</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (xemTruoc.Rows.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            Không còn chỉ số nào chờ tạo hóa đơn cho kỳ này. Hãy nhập chỉ số ở mục <a asp-action="ChiSo">Chỉ số điện/nước</a>.
+                        </td>
+                    </tr>
+                }
+                @if (dg != null)
+                {
+                    foreach (DataRow r in xemTruoc.Rows)
+                    {
+                        decimal kwh = Convert.ToDecimal(r["DienCuoiKy"]) - Convert.ToDecimal(r["DienDauKy"]);
+                        decimal m3 = Convert.ToDecimal(r["NuocCuoiKy"]) - Convert.ToDecimal(r["NuocDauKy"]);
+                        decimal tienDien = Math.Round(kwh * Convert.ToDecimal(dg["GiaDien"]));
+                        decimal tienNuoc = Math.Round(m3 * Convert.ToDecimal(dg["GiaNuoc"]));
+                        decimal phiDV = Convert.ToDecimal(dg["PhiDichVu"]);
+                        decimal tienPhong = Convert.ToDecimal(r["GiaPhong"]) * Convert.ToInt32(r["SoNguoiO"]) + phiDV;
+                        decimal tong = tienPhong + tienDien + tienNuoc;
+                        <tr>
+                            <td class="fw-semibold">@r["MaPhong"]</td>
+                            <td class="text-center">@r["SoNguoiO"]</td>
+                            <td class="text-end">@kwh.ToString("N1")</td>
+                            <td class="text-end">@m3.ToString("N1")</td>
+                            <td class="text-end">@tienPhong.ToString("N0")đ</td>
+                            <td class="text-end">@tienDien.ToString("N0")đ</td>
+                            <td class="text-end">@tienNuoc.ToString("N0")đ</td>
+                            <td class="text-end fw-bold text-dm">@tong.ToString("N0")đ</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* ===== Bước 2: Hóa đơn nháp chờ xác nhận gửi ===== *@
+<div class="card">
+    <div class="card-header thd-header">
+        <span><i class="bi bi-2-circle me-2"></i>Hóa đơn bản nháp - kiểm tra và xác nhận gửi tới sinh viên</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 thd-table">
+            <thead>
+                <tr><th>Mã HĐ</th><th>Phòng</th><th>Tháng</th><th class="text-end">Tổng tiền</th><th>Hạn thanh toán</th><th class="text-end"></th></tr>
+            </thead>
+            <tbody>
+                @if (dsNhap.Rows.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-4">Không có hóa đơn nháp nào chờ gửi</td></tr>
+                }
+                @foreach (DataRow r in dsNhap.Rows)
+                {
+                    <tr>
+                        <td class="fw-semibold">#@r["MaHD"]</td>
+                        <td>@r["MaPhong"]</td>
+                        <td>@r["Thang"]</td>
+                        <td class="text-end fw-bold">@(Convert.ToDecimal(r["TongTien"]).ToString("N0"))đ</td>
+                        <td>@(Convert.ToDateTime(r["HanThanhToan"]).ToString("dd/MM/yyyy"))</td>
+                        <td class="text-end">
+                            <form method="post" asp-action="GuiHoaDon" class="d-inline"
+                                  data-confirm-title="Gửi hóa đơn" data-confirm-level="warning"
+                                  data-confirm-message="Gửi hóa đơn này? Hệ thống sẽ thông báo tới toàn bộ sinh viên trong phòng.">
+                                <input type="hidden" name="maHD" value="@r["MaHD"]" />
+                                <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-send me-1"></i>Xác nhận gửi</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

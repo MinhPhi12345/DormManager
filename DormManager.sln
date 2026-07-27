@@ -1,25 +1,75 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.37502.11 d17.14
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DormManager", "DormManager.csproj", "{5EA14066-EA38-A309-F9F6-940E9E15A61E}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5EA14066-EA38-A309-F9F6-940E9E15A61E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5EA14066-EA38-A309-F9F6-940E9E15A61E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5EA14066-EA38-A309-F9F6-940E9E15A61E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5EA14066-EA38-A309-F9F6-940E9E15A61E}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {A751E497-F917-4980-93A0-F0D056D1C2B9}
-	EndGlobalSection
-EndGlobal
+@using System.Data
+@{
+    ViewData["Title"] = "Báo cáo công nợ sinh viên";
+    DataTable ds = ViewBag.DsCongNo;
+}
+
+@* Báo cáo công nợ | View phức tạp -> style External *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/baocaocongno.css" />
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div class="small text-muted">Sinh viên đang nợ</div>
+            <div class="h4 fw-bold text-dm mb-0">@ViewBag.SoSVNo</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div class="small text-muted">Tổng công nợ hệ thống</div>
+            <div class="h4 fw-bold text-danger mb-0">@(Convert.ToDecimal(ViewBag.TongNoHeThong).ToString("N0"))đ</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 bcn-table">
+            <thead>
+                <tr><th>#</th><th>MSSV</th><th>Họ tên</th><th>Khóa</th><th>Đối tượng</th><th>Số HĐ nợ</th><th>Tổng nợ</th><th>Trễ nhất (ngày)</th><th>Tài khoản</th></tr>
+            </thead>
+            <tbody>
+                @if (ds.Rows.Count == 0)
+                {
+                    <tr><td colspan="9" class="text-center text-muted py-4">Hiện không có sinh viên nào nợ hóa đơn</td></tr>
+                }
+                @for (int i = 0; i < ds.Rows.Count; i++)
+                {
+                    var r = ds.Rows[i];
+                    int treNhat = r["SoNgayTreNhat"] != DBNull.Value ? Convert.ToInt32(r["SoNgayTreNhat"]) : 0;
+                    <tr class="@(treNhat > 14 ? "row-urgent" : "")">
+                        <td>@(i + 1)</td>
+                        <td class="fw-semibold">@r["MSSV"]</td>
+                        <td>@r["HoTen"]</td>
+                        <td>@r["KhoaHoc"]</td>
+                        <td>@(r["DoiTuong"].ToString() == "ChinhSach" ? "Chính sách" : "Bình thường")</td>
+                        <td>@r["SoHoaDonNo"]</td>
+                        <td class="fw-bold text-danger">@(Convert.ToDecimal(r["TongNo"]).ToString("N0"))đ</td>
+                        <td>
+                            @if (treNhat > 0)
+                            {
+                                <span class="badge text-bg-danger">@treNhat ngày</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">Chưa quá hạn</span>
+                            }
+                        </td>
+                        <td>
+                            @if (r["TrangThaiTK"].ToString() == "BiKhoa")
+                            {
+                                <span class="badge text-bg-secondary">Bị khóa</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">Hoạt động</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

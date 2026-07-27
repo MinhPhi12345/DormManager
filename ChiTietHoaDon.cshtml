@@ -1,0 +1,106 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Thông tin chi tiết đơn đăng ký";
+    DataRow p = ViewBag.Phieu;
+    string tt = p["TrangThai"].ToString()!;
+}
+
+@* Chi tiết đơn đăng ký + Xác nhận nhận phòng | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        .detail-box {
+            max-width: 760px;
+        }
+
+            .detail-box dt {
+                color: #567;
+                font-weight: 500;
+            }
+    </style>
+}
+
+<div class="detail-box card p-4">
+    <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
+        <h2 class="h5 fw-bold mb-0">Phiếu đăng ký #@p["MaPhieu"]</h2>
+        @switch (tt)
+        {
+            case "ChoDoiChieu":
+                <span class="badge text-bg-warning">Chờ đối chiếu</span>
+                ; break;
+            case "DangO":
+
+                <span class="badge text-bg-success">Đang ở</span>
+                ; break;
+            case "DaTraPhong":
+
+                <span class="badge text-bg-secondary">Đã trả phòng</span>
+                ; break;
+            default:
+
+                <span class="badge text-bg-danger">Đã hủy</span>
+                ; break;
+        }
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h3 class="h6 text-dm">Thông tin sinh viên</h3>
+            <dl class="row small">
+                <dt class="col-5">Họ tên</dt>
+                <dd class="col-7">@p["HoTen"]</dd>
+                <dt class="col-5">MSSV</dt>
+                <dd class="col-7">@p["MSSV"]</dd>
+                <dt class="col-5">Khóa học</dt>
+                <dd class="col-7">@p["KhoaHoc"]</dd>
+                <dt class="col-5">Giới tính</dt>
+                <dd class="col-7">@(p["GioiTinh"] == DBNull.Value ? "—" : p["GioiTinh"].ToString() == "Nam" ? "Nam" : "Nữ")</dd>
+                <dt class="col-5">Đối tượng</dt>
+                <dd class="col-7">@(p["DoiTuong"].ToString() == "ChinhSach" ? "Diện chính sách" : "Bình thường")</dd>
+                <dt class="col-5">Điểm vi phạm</dt>
+                <dd class="col-7">@p["DiemViPham"]</dd>
+            </dl>
+        </div>
+        <div class="col-md-6">
+            <h3 class="h6 text-dm">Thông tin lưu trú</h3>
+            <dl class="row small">
+                <dt class="col-5">Phòng / Giường</dt>
+                <dd class="col-7">@p["MaPhong"] / @p["MaGiuong"]</dd>
+                <dt class="col-5">Tòa nhà</dt>
+                <dd class="col-7">@p["TenToa"]</dd>
+                <dt class="col-5">Loại phòng</dt>
+                <dd class="col-7">@p["LoaiPhong"] giường</dd>
+                <dt class="col-5">Giá phòng</dt>
+                <dd class="col-7">@(Convert.ToDecimal(p["GiaPhong"]).ToString("N0"))đ/tháng</dd>
+                <dt class="col-5">Đợt đăng ký</dt>
+                <dd class="col-7">@p["TenDot"] (@p["HocKy"])</dd>
+                <dt class="col-5">Thời hạn</dt>
+                <dd class="col-7">@(Convert.ToDateTime(p["NgayBatDau"]).ToString("dd/MM/yyyy")) → @(Convert.ToDateTime(p["NgayKetThuc"]).ToString("dd/MM/yyyy"))</dd>
+            </dl>
+        </div>
+    </div>
+
+    @if (tt == "ChoDoiChieu")
+    {
+        <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle me-1"></i>
+ Đối chiếu thẻ sinh viên với thông tin trên, sau đó xác nhận hoàn tất nhận phòng và bàn giao chìa khóa/thẻ từ.
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <form method="post" asp-action="XacNhanNhanPhong">
+                <input type="hidden" name="maPhieu" value="@p["MaPhieu"]" />
+                <button type="submit" class="btn btn-dm"><i class="bi bi-check-lg me-1"></i>Xác nhận hoàn tất nhận phòng</button>
+            </form>
+            <form method="post" asp-action="HuyPhieu"
+                  data-confirm-title="Hủy phiếu đăng ký" data-confirm-level="danger"
+                  data-confirm-message="Hủy phiếu này và trả giường về trạng thái trống?">
+                <input type="hidden" name="maPhieu" value="@p["MaPhieu"]" />
+                <button type="submit" class="btn btn-outline-danger">Từ chối / Hủy phiếu</button>
+            </form>
+            <a asp-action="DonDangKy" class="btn btn-outline-secondary ms-auto">Trở về</a>
+        </div>
+    }
+    else
+    {
+        <a asp-action="DonDangKy" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Trở về danh sách</a>
+    }
+</div>

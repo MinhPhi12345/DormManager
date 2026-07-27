@@ -1,0 +1,70 @@
+@{
+    ViewData["Title"] = "Quên mật khẩu";
+    Layout = "_LayoutAuth";
+}
+
+@* Quên mật khẩu | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #084237 0%, #0d5c4d 55%, #12735f 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "Segoe UI", system-ui, sans-serif;
+        }
+
+        .forgot-card {
+            width: 100%;
+            max-width: 430px;
+            background: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 18px 45px rgba(0,0,0,.28);
+            padding: 2.2rem 2rem;
+            margin: 1rem;
+        }
+
+        .btn-send {
+            background: #0d5c4d;
+            color: #fff;
+            font-weight: 600;
+        }
+
+            .btn-send:hover {
+                background: #084237;
+                color: #fff;
+            }
+    </style>
+}
+
+<div class="forgot-card">
+    <h1 class="h4 fw-bold mb-1"><i class="bi bi-key me-2 text-warning"></i>Quên mật khẩu</h1>
+    <p class="text-muted small mb-4">
+        Nhập họ tên và email được cấp. Hệ thống sẽ gửi hướng dẫn đặt lại mật khẩu qua Dịch vụ Email/SMS.
+    </p>
+
+    @if (ViewBag.Loi != null)
+    {
+        <div class="alert alert-danger py-2 small">@ViewBag.Loi</div>
+    }
+    @if (ViewBag.ThanhCong != null)
+    {
+        <div class="alert alert-success py-2 small">@ViewBag.ThanhCong</div>
+    }
+
+    <form method="post" asp-action="QuenMatKhau">
+        <div class="mb-3">
+            <label class="form-label">Họ và tên sinh viên</label>
+            <input type="text" name="hoTen" class="form-control" required />
+        </div>
+        <div class="mb-4">
+            <label class="form-label">Email được cấp</label>
+            <input type="email" name="email" class="form-control" placeholder="vd: 24dh113343@st.huflit.edu.vn" required />
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="DangNhap" class="btn btn-outline-secondary w-50">Trở về</a>
+            <button type="submit" class="btn btn-send w-50">Gửi yêu cầu</button>
+        </div>
+    </form>
+</div>
