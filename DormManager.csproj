@@ -1,83 +1,13 @@
-@using System.Data
-@{
-    ViewData["Title"] = "Chi tiết đơn";
-    DataRow d = ViewBag.Don;
-}
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
-@* Chi tiết đơn phản hồi | View đơn giản -> style Inline *@
-@section Styles {
-    <style>
-        .don-detail {
-            max-width: 720px;
-        }
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
 
-        .don-content {
-            background: #f6f8f7;
-            border-radius: .6rem;
-            padding: 1rem 1.2rem;
-            white-space: pre-wrap;
-        }
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
 
-        .don-reply {
-            border-left: 4px solid #0d5c4d;
-            background: #eef5f2;
-            border-radius: .4rem;
-            padding: .9rem 1.1rem;
-        }
-    </style>
-}
-
-<div class="don-detail card p-4">
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-        <h2 class="h5 fw-bold mb-0">@d["TieuDe"]</h2>
-        @switch (d["TrangThai"].ToString())
-        {
-            case "ChoXuLy":
-                <span class="badge text-bg-secondary">Chờ xử lý</span>
-                ; break;
-            case "DangXuLy":
-
-                <span class="badge text-bg-info">Đang xử lý</span>
-                ; break;
-            case "DaXuLy":
-
-                <span class="badge text-bg-success">Đã xử lý</span>
-                ; break;
-            default:
-
-                <span class="badge text-bg-danger">Từ chối</span>
-                ; break;
-        }
-    </div>
-    <div class="text-muted small mb-3">
-        @(d["LoaiDon"].ToString() == "PhanHoi" ? "Đơn phản hồi" : "Đơn đề xuất")
-        · Gửi lúc @(Convert.ToDateTime(d["NgayTao"]).ToString("HH:mm dd/MM/yyyy"))
-        · Mức ưu tiên: @(d["MucUuTien"].ToString() == "Cao" ? "Cao" : d["MucUuTien"].ToString() == "TrungBinh" ? "Trung bình" : "Thấp")
-    </div>
-
-    <div class="don-content small mb-3">@d["NoiDung"]</div>
-
-    @if (d["PhanHoi"] != DBNull.Value && !string.IsNullOrWhiteSpace(d["PhanHoi"].ToString()))
-    {
-        <h3 class="h6 fw-semibold">Phản hồi từ Ban quản lý @(d["TenNV"] != DBNull.Value ? $"({d["TenNV"]})" : "")</h3>
-        <div class="don-reply small">@d["PhanHoi"]</div>
-    }
-    else
-    {
-        <div class="text-muted small fst-italic">Ban quản lý chưa phản hồi đơn này.</div>
-    }
-    <div class="mt-4 d-flex gap-2">
-        <a asp-action="DonYeuCau" asp-route-loai="@d["LoaiDon"]" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Trở về danh sách</a>
-
-        @* Bổ sung nút xóa ngay trong trang chi tiết nếu đơn vẫn đang chờ xử lý *@
-        @if (d["TrangThai"].ToString() == "ChoXuLy")
-        {
-            <form method="post" asp-action="XoaDon" class="d-inline"
-                  data-confirm-title="Xóa đơn yêu cầu" data-confirm-level="danger"
-                  data-confirm-message="Bạn có chắc chắn muốn hủy và xóa đơn này không?">
-                <input type="hidden" name="maDon" value="@d["MaDon"]" />
-                <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash me-1"></i>Hủy đơn này</button>
-            </form>
-        }
-    </div>
-</div>
+</Project>
