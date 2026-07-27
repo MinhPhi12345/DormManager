@@ -68,7 +68,8 @@ CREATE TABLE PHONG (
     SoGiuong      INT         NOT NULL CHECK (SoGiuong > 0),
     GiaPhong      DECIMAL(10,0) NOT NULL CHECK (GiaPhong >= 0), -- VNĐ/người/tháng
     TrangThai     VARCHAR(15) NOT NULL DEFAULT 'HoatDong' CHECK (TrangThai IN ('HoatDong','BaoTri','NgungSuDung')),
-    SoGiuongTrong INT         NOT NULL CHECK (SoGiuongTrong >= 0)
+    SoGiuongTrong INT         NOT NULL CHECK (SoGiuongTrong >= 0),
+    AnhPhong      NVARCHAR(255) NULL                    -- Đường dẫn ảnh phòng (vd '/uploads/phong/A1-201_123.jpg')
 );
 
 /* ============================ 6. GIUONG ============================= */
