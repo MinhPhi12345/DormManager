@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "DormManager": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:59263;http://localhost:59264"
+    }
+  }
+}

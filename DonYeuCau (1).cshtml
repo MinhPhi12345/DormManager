@@ -1,0 +1,127 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Danh sách đơn phản hồi, yêu cầu";
+    DataTable ds = ViewBag.DsDon;
+    var q = Context.Request.Query;
+}
+
+@* Danh sách, tra cứu, sắp xếp ưu tiên | View phức tạp -> style External *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/donyeucau-ql.css" />
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label small mb-1">Tra cứu</label>
+                <input type="text" name="tuKhoa" value="@q["tuKhoa"]" class="form-control" placeholder="Tiêu đề, tên SV, MSSV..." />
+            </div>
+            <div class="col-4 col-md-2">
+                <label class="form-label small mb-1">Loại đơn</label>
+                <select name="loai" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="PhanHoi" selected="@(q["loai"] == "PhanHoi")">Phản hồi</option>
+                    <option value="DeXuat" selected="@(q["loai"] == "DeXuat")">Đề xuất</option>
+                    <option value="TraPhong" selected="@(q["loai"] == "TraPhong")">Trả phòng</option>
+                    <option value="ChuyenPhong" selected="@(q["loai"] == "ChuyenPhong")">Chuyển phòng</option>
+                </select>
+            </div>
+            <div class="col-4 col-md-2">
+                <label class="form-label small mb-1">Trạng thái</label>
+                <select name="trangThai" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="ChoXuLy" selected="@(q["trangThai"] == "ChoXuLy")">Chờ xử lý</option>
+                    <option value="DangXuLy" selected="@(q["trangThai"] == "DangXuLy")">Đang xử lý</option>
+                    <option value="DaXuLy" selected="@(q["trangThai"] == "DaXuLy")">Đã xử lý</option>
+                    <option value="TuChoi" selected="@(q["trangThai"] == "TuChoi")">Từ chối</option>
+                </select>
+            </div>
+            <div class="col-4 col-md-2">
+                <label class="form-label small mb-1">Ưu tiên</label>
+                <select name="uuTien" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="Cao" selected="@(q["uuTien"] == "Cao")">Cao</option>
+                    <option value="TrungBinh" selected="@(q["uuTien"] == "TrungBinh")">Trung bình</option>
+                    <option value="Thap" selected="@(q["uuTien"] == "Thap")">Thấp</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <button class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Tra cứu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 dyq-table">
+            <thead>
+                <tr><th>#</th><th>Tiêu đề</th><th>Sinh viên</th><th>Loại</th><th>Ưu tiên</th><th>Ngày tạo</th><th>Trạng thái</th><th></th></tr>
+            </thead>
+            <tbody>
+                @if (ds.Rows.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-center text-muted py-4">Không có đơn nào</td></tr>
+                }
+                @for (int i = 0; i < ds.Rows.Count; i++)
+                {
+                    var d = ds.Rows[i];
+                    string ut = d["MucUuTien"].ToString()!;
+                    <tr class="@(ut == "Cao" && d["TrangThai"].ToString() == "ChoXuLy" ? "row-urgent" : "")">
+                        <td>@(i + 1)</td>
+                        <td class="fw-semibold">@d["TieuDe"]</td>
+                        <td><div>@d["HoTen"]</div><div class="small text-muted">@d["MSSV"]</div></td>
+                        <td>
+                            @(d["LoaiDon"].ToString() switch
+                            {
+                                "PhanHoi" => "Phản hồi",
+                                "TraPhong" => "Trả phòng",
+                                "ChuyenPhong" => "Chuyển phòng",
+                                _ => "Đề xuất"
+                            })
+                    </td>
+                    <td>
+                        @switch (ut)
+                            {
+                                case "Cao":
+                                    <span class="badge text-bg-danger">Cao</span>
+                                    ; break;
+                                case "TrungBinh":
+
+                                    <span class="badge text-bg-warning">Trung bình</span>
+                                    ; break;
+                                default:
+
+                                    <span class="badge text-bg-secondary">Thấp</span>
+                                    ; break;
+                            }
+                        </td>
+                        <td>@(Convert.ToDateTime(d["NgayTao"]).ToString("dd/MM/yyyy"))</td>
+                        <td>
+                            @switch (d["TrangThai"].ToString())
+                            {
+                                case "ChoXuLy":
+                                    <span class="badge text-bg-secondary">Chờ xử lý</span>
+                                    ; break;
+                                case "DangXuLy":
+
+                                    <span class="badge text-bg-info">Đang xử lý</span>
+                                    ; break;
+                                case "DaXuLy":
+
+                                    <span class="badge text-bg-success">Đã xử lý</span>
+                                    ; break;
+                                default:
+
+                                    <span class="badge text-bg-danger">Từ chối</span>
+                                    ; break;
+                            }
+                        </td>
+                        <td><a asp-action="ChiTietDon" asp-route-id="@d["MaDon"]" class="btn btn-sm btn-dm">Xử lý</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
