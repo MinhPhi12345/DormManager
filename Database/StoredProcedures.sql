@@ -54,6 +54,25 @@ BEGIN
 END
 GO
 
+-- Ghi 1 dòng nhật ký thao tác hệ thống (audit log) - gọi ở các thao tác
+-- Thêm/Sửa/Xóa Phòng, Tài khoản, Đơn giá... của Quản trị viên.
+IF OBJECT_ID('sp_Chung_ThemNhatKy', 'P') IS NOT NULL DROP PROCEDURE sp_Chung_ThemNhatKy;
+GO
+CREATE PROCEDURE sp_Chung_ThemNhatKy
+    @MaTK     INT          = NULL,
+    @HoTen    NVARCHAR(100) = NULL,
+    @VaiTro   VARCHAR(10)  = NULL,
+    @HanhDong VARCHAR(20),
+    @DoiTuong NVARCHAR(50),
+    @NoiDung  NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO NHATKY (MaTK, HoTenNguoiThucHien, VaiTro, HanhDong, DoiTuong, NoiDung)
+    VALUES (@MaTK, @HoTen, @VaiTro, @HanhDong, @DoiTuong, @NoiDung);
+END
+GO
+
 /* ============================================================================
  - Thông tin tổng quan (sinh viên)
    Gộp 4 câu SELECT vào 1 SP, trả về 4 result set trong 1 lượt gọi.
@@ -396,6 +415,73 @@ BEGIN
 END
 GO
 
+/* QD-CP: Chỉ xác nhận chuyển phòng khi hợp đồng cũ còn "Đang ở" và giường mới
+   còn "Trống" (điều kiện đủ số ngày tối thiểu + không nợ hóa đơn đã được kiểm
+   tra ở tầng ứng dụng lúc sinh viên gửi đơn - SP kiểm tra lại điều kiện giường
+   để tránh trường hợp giường đã bị người khác đăng ký trong lúc chờ duyệt). */
+IF OBJECT_ID('sp_XacNhanChuyenPhong', 'P') IS NOT NULL DROP PROCEDURE sp_XacNhanChuyenPhong;
+GO
+CREATE PROCEDURE sp_XacNhanChuyenPhong
+    @MaDon INT,
+    @MaNV  VARCHAR(10) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @MSSV VARCHAR(10), @MaPhieuCu INT, @MaGiuongMoi VARCHAR(20);
+    SELECT @MSSV = MSSV, @MaPhieuCu = MaPhieu, @MaGiuongMoi = MaGiuongMoi
+    FROM DONYEUCAU
+    WHERE MaDon = @MaDon AND LoaiDon = 'ChuyenPhong' AND TrangThai IN ('ChoXuLy', 'DangXuLy');
+    IF @MaPhieuCu IS NULL OR @MaGiuongMoi IS NULL RETURN;
+
+    DECLARE @MaGiuongCu VARCHAR(20), @MaPhongCu VARCHAR(15), @MaDot INT,
+            @NgayKetThuc DATE, @TrangThaiPhieu VARCHAR(15);
+    SELECT @MaGiuongCu = pd.MaGiuong, @MaPhongCu = g.MaPhong, @MaDot = pd.MaDot,
+           @NgayKetThuc = pd.NgayKetThuc, @TrangThaiPhieu = pd.TrangThai
+    FROM PHIEUDANGKY pd JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
+    WHERE pd.MaPhieu = @MaPhieuCu;
+
+    DECLARE @MaPhongMoi VARCHAR(15), @TrangThaiGiuongMoi VARCHAR(10);
+    SELECT @MaPhongMoi = MaPhong, @TrangThaiGiuongMoi = TrangThai FROM GIUONG WHERE MaGiuong = @MaGiuongMoi;
+
+    IF @TrangThaiPhieu <> 'DangO' OR @TrangThaiGiuongMoi IS NULL OR @TrangThaiGiuongMoi <> 'Trong' OR @MaGiuongMoi = @MaGiuongCu
+    BEGIN
+        UPDATE DONYEUCAU SET TrangThai = 'TuChoi',
+            PhanHoi = N'Giường muốn chuyển đến không còn trống hoặc hợp đồng hiện tại không hợp lệ.', MaNV = @MaNV
+        WHERE MaDon = @MaDon;
+        RETURN;
+    END
+
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        -- Đóng phiếu cũ, giải phóng giường + phòng cũ
+        UPDATE PHIEUDANGKY SET TrangThai = 'DaTraPhong' WHERE MaPhieu = @MaPhieuCu;
+        UPDATE GIUONG SET TrangThai = 'Trong' WHERE MaGiuong = @MaGiuongCu;
+        UPDATE PHONG SET SoGiuongTrong = SoGiuongTrong + 1 WHERE MaPhong = @MaPhongCu;
+
+        -- Mở phiếu mới (giữ nguyên đợt đăng ký + thời hạn hợp đồng ban đầu), chiếm giường + phòng mới
+        INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetThuc, TrangThai)
+        VALUES (@MSSV, @MaGiuongMoi, @MaDot, GETDATE(), CAST(GETDATE() AS DATE), @NgayKetThuc, 'DangO');
+
+        UPDATE GIUONG SET TrangThai = 'DaSuDung' WHERE MaGiuong = @MaGiuongMoi;
+        UPDATE PHONG SET SoGiuongTrong = SoGiuongTrong - 1 WHERE MaPhong = @MaPhongMoi;
+
+        UPDATE DONYEUCAU SET TrangThai = 'DaXuLy',
+            PhanHoi = N'Đã xác nhận chuyển phòng từ ' + @MaPhongCu + N' sang ' + @MaPhongMoi + N'.', MaNV = @MaNV
+        WHERE MaDon = @MaDon;
+
+        INSERT INTO THONGBAO (MSSV, NoiDung, Kenh)
+        VALUES (@MSSV, N'Yêu cầu chuyển phòng #' + CAST(@MaDon AS NVARCHAR) +
+                N' đã được xác nhận. Bạn đã chuyển sang phòng ' + @MaPhongMoi + N'.', 'Email');
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
 IF OBJECT_ID('sp_CapNhatGiuong', 'P') IS NOT NULL DROP PROCEDURE sp_CapNhatGiuong;
 GO
 CREATE PROCEDURE sp_CapNhatGiuong
@@ -542,6 +628,30 @@ BEGIN
 
     -- Result set 4: Đơn yêu cầu theo trạng thái
     SELECT TrangThai, COUNT(*) AS SoLuong FROM DONYEUCAU GROUP BY TrangThai;
+END
+GO
+
+/* Báo cáo công nợ sinh viên (QTV) - khác sp_ThongKe: liệt kê CHI TIẾT từng SV
+   đang có hóa đơn ChoThanhToan/QuaHan, tổng nợ và số ngày trễ nhất, để QTV
+   theo dõi và đôn đốc thu hồi công nợ. */
+IF OBJECT_ID('sp_BaoCaoCongNo', 'P') IS NOT NULL DROP PROCEDURE sp_BaoCaoCongNo;
+GO
+CREATE PROCEDURE sp_BaoCaoCongNo
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT sv.MSSV, sv.HoTen, sv.KhoaHoc, sv.DoiTuong, tk.TrangThai AS TrangThaiTK,
+           COUNT(h.MaHD) AS SoHoaDonNo,
+           SUM(h.TongTien) AS TongNo,
+           MAX(CASE WHEN h.TrangThai = 'QuaHan' THEN DATEDIFF(DAY, h.HanThanhToan, GETDATE()) ELSE 0 END) AS SoNgayTreNhat
+    FROM HOADON h
+    JOIN GIUONG g ON g.MaPhong = h.MaPhong
+    JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.TrangThai = 'DangO'
+    JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
+    JOIN TAIKHOAN tk ON tk.MaTK = sv.MaTK
+    WHERE h.TrangThai IN ('ChoThanhToan', 'QuaHan')
+    GROUP BY sv.MSSV, sv.HoTen, sv.KhoaHoc, sv.DoiTuong, tk.TrangThai
+    ORDER BY TongNo DESC;
 END
 GO
 
@@ -730,5 +840,26 @@ BEGIN
     FROM DOTDANGKY
     WHERE GETDATE() BETWEEN NgayMo AND NgayDong
     ORDER BY CASE LoaiDot WHEN 'UuTien' THEN 0 ELSE 1 END;
+END
+GO
+
+/* Thống kê điểm đánh giá phòng/KTX trung bình theo phòng (QL/QTV xem).
+   Chỉ trả về phòng đã có ít nhất 1 lượt đánh giá. */
+IF OBJECT_ID('sp_ThongKeDanhGia', 'P') IS NOT NULL DROP PROCEDURE sp_ThongKeDanhGia;
+GO
+CREATE PROCEDURE sp_ThongKeDanhGia
+    @MaToa VARCHAR(10) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT p.MaPhong, t.MaToa, t.TenToa,
+           COUNT(dg.MaDanhGia) AS SoLuotDanhGia,
+           CAST(AVG(CAST(dg.SoSao AS DECIMAL(3,2))) AS DECIMAL(3,2)) AS DiemTrungBinh
+    FROM PHONG p
+    JOIN TOANHA t ON t.MaToa = p.MaToa
+    JOIN DANHGIA dg ON dg.MaPhong = p.MaPhong
+    WHERE (@MaToa IS NULL OR p.MaToa = @MaToa)
+    GROUP BY p.MaPhong, t.MaToa, t.TenToa
+    ORDER BY DiemTrungBinh DESC, SoLuotDanhGia DESC;
 END
 GO

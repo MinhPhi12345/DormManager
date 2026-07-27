@@ -1,12 +1,21 @@
 using DormManager.Data;
 using DormManager.Helpers;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using System.Linq;
 
 namespace DormManager.Controllers
 {
     [PhanQuyen("QTV")]
     public class QuanTriController : Controller
     {
+        private int? MaTK => HttpContext.Session.GetInt32("MaTK");
+        private string? HoTen => HttpContext.Session.GetString("HoTen");
+
+        /// <summary>Ghi 1 dòng nhật ký thao tác hệ thống (sp_Chung_ThemNhatKy) cho hành động hiện tại của QTV.</summary>
+        private void GhiNhatKy(string hanhDong, string doiTuong, string noiDung)
+            => CommonRepo.ThemNhatKy(MaTK, HoTen, "QTV", hanhDong, doiTuong, noiDung);
+
         // ============ Tổng quan thống kê ============
         public IActionResult ThongKe()
         {
@@ -90,9 +99,35 @@ namespace DormManager.Controllers
             return View();
         }
 
+        // ============ Lưu ảnh phòng lên wwwroot/uploads/phong, trả về đường dẫn tương đối (hoặc null nếu không có ảnh) ============
+        private string? LuuAnhPhong(IFormFile? anhPhong, string maPhong)
+        {
+            if (anhPhong == null || anhPhong.Length == 0) return null;
+
+            var duoiHopLe = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var duoi = Path.GetExtension(anhPhong.FileName).ToLowerInvariant();
+            if (!duoiHopLe.Contains(duoi))
+            {
+                TempData["Loi"] = "Ảnh phòng chỉ chấp nhận định dạng JPG, PNG hoặc WEBP.";
+                return null;
+            }
+
+            var thuMuc = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "phong");
+            Directory.CreateDirectory(thuMuc);
+
+            // Đặt tên file theo mã phòng + timestamp để tránh cache ảnh cũ trên trình duyệt
+            var tenFile = $"{maPhong}_{DateTime.Now.Ticks}{duoi}";
+            var duongDanVatLy = Path.Combine(thuMuc, tenFile);
+
+            using (var fs = new FileStream(duongDanVatLy, FileMode.Create))
+                anhPhong.CopyTo(fs);
+
+            return $"/uploads/phong/{tenFile}";
+        }
+
         // ============ Thêm phòng mới ============
         [HttpPost]
-        public IActionResult ThemPhong(string maToa, int tang, string loaiPhong, decimal giaPhong)
+        public IActionResult ThemPhong(string maToa, int tang, string loaiPhong, decimal giaPhong, IFormFile? anhPhong)
         {
             int soGiuong = int.Parse(loaiPhong);
             var toa = Db.Query(@"SELECT SoTang FROM TOANHA WHERE MaToa = @MaToa;", Db.P("@MaToa", maToa));
@@ -108,23 +143,36 @@ namespace DormManager.Controllers
             do { maPhong = $"{maToa}-{tang}{stt:D2}"; stt++; }
             while (Convert.ToInt32(Db.Scalar(@"SELECT COUNT(*) FROM PHONG WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong))) > 0);
 
-            Db.Exec(@"INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong)
-    VALUES (@MaPhong, @MaToa, @Tang, @LoaiPhong, @SoGiuong, @GiaPhong, 'HoatDong', @SoGiuong);",
+            string? duongDanAnh = LuuAnhPhong(anhPhong, maPhong);
+
+            Db.Exec(@"INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong, AnhPhong)
+    VALUES (@MaPhong, @MaToa, @Tang, @LoaiPhong, @SoGiuong, @GiaPhong, 'HoatDong', @SoGiuong, @AnhPhong);",
                 Db.P("@MaPhong", maPhong), Db.P("@MaToa", maToa), Db.P("@Tang", tang),
-                Db.P("@LoaiPhong", loaiPhong), Db.P("@SoGiuong", soGiuong), Db.P("@GiaPhong", giaPhong));
+                Db.P("@LoaiPhong", loaiPhong), Db.P("@SoGiuong", soGiuong), Db.P("@GiaPhong", giaPhong),
+                Db.P("@AnhPhong", duongDanAnh));
 
             for (int i = 1; i <= soGiuong; i++)
                 Db.Exec(@"INSERT INTO GIUONG (MaGiuong, MaPhong) VALUES (@MaGiuong, @MaPhong);", Db.P("@MaGiuong", $"{maPhong}-G{i}"), Db.P("@MaPhong", maPhong));
 
+            GhiNhatKy("Them", "Phòng", $"Thêm phòng {maPhong} ({soGiuong} giường) vào tòa {maToa}, tầng {tang}, giá {giaPhong:N0}đ.");
             TempData["ThanhCong"] = $"Đã thêm phòng {maPhong} với {soGiuong} giường.";
             return RedirectToAction("Phong");
         }
 
         // ============ Cập nhật phòng ============
         [HttpPost]
-        public IActionResult CapNhatPhong(string maPhong, decimal giaPhong, string trangThai)
+        public IActionResult CapNhatPhong(string maPhong, decimal giaPhong, string trangThai, IFormFile? anhPhong)
         {
-            Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai));
+            string? duongDanAnh = LuuAnhPhong(anhPhong, maPhong);
+
+            if (duongDanAnh != null)
+                Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai, AnhPhong = @AnhPhong WHERE MaPhong = @MaPhong;",
+                    Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai), Db.P("@AnhPhong", duongDanAnh));
+            else
+                Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai WHERE MaPhong = @MaPhong;",
+                    Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai));
+
+            GhiNhatKy("Sua", "Phòng", $"Cập nhật phòng {maPhong}: giá {giaPhong:N0}đ, trạng thái {trangThai}.");
             TempData["ThanhCong"] = $"Đã cập nhật phòng {maPhong}.";
             return RedirectToAction("Phong");
         }
@@ -151,11 +199,13 @@ namespace DormManager.Controllers
             {
                 // Có dữ liệu lịch sử → chỉ ngừng sử dụng thay vì xóa vật lý
                 Db.Exec(@"UPDATE PHONG SET TrangThai = 'NgungSuDung' WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong));
+                GhiNhatKy("Sua", "Phòng", $"Phòng {maPhong} có dữ liệu lịch sử nên chuyển sang Ngừng sử dụng (thay vì xóa).");
                 TempData["ThanhCong"] = $"Phòng {maPhong} có dữ liệu lịch sử nên đã chuyển sang trạng thái Ngừng sử dụng.";
                 return RedirectToAction("Phong");
             }
 
             QuanTriRepo.XoaPhong(maPhong);   // sp_XoaPhong (transaction xóa giường + phòng)
+            GhiNhatKy("Xoa", "Phòng", $"Xóa phòng {maPhong}.");
             TempData["ThanhCong"] = $"Đã xóa phòng {maPhong}.";
             return RedirectToAction("Phong");
         }
@@ -179,6 +229,8 @@ namespace DormManager.Controllers
             if (giaNuoc <= 0 || giaNuoc > ts8) { TempData["Loi"] = $"Đơn giá nước phải > 0 và không vượt {ts8:N0}đ/m³."; return RedirectToAction("DonGia"); }
 
             QuanTriRepo.CapNhatDonGia(giaDien, giaNuoc, phiDichVu, ngayApDung);   // sp_CapNhatDonGia (transaction hết hiệu lực cũ + thêm mới)
+            GhiNhatKy("Sua", "Đơn giá điện/nước",
+                $"Cập nhật biểu giá mới: điện {giaDien:N0}đ/kWh, nước {giaNuoc:N0}đ/m³, phí dịch vụ {phiDichVu:N0}đ, áp dụng từ {ngayApDung:dd/MM/yyyy}.");
             TempData["ThanhCong"] = "Đã cập nhật biểu giá điện/nước mới.";
             return RedirectToAction("DonGia");
         }
@@ -271,6 +323,7 @@ namespace DormManager.Controllers
                     Db.P("@MaNV", $"NV{stt:D3}"), Db.P("@MaTK", maTK), Db.P("@HoTen", hoTen ?? tenDangNhap), Db.P("@MaToa", maToa));
             }
 
+            GhiNhatKy("Them", "Tài khoản", $"Tạo tài khoản {tenDangNhap} (vai trò {vaiTro}).");
             TempData["ThanhCong"] = $"Đã tạo tài khoản {tenDangNhap} ({vaiTro}).";
             return RedirectToAction("TaiKhoan");
         }
@@ -288,6 +341,7 @@ namespace DormManager.Controllers
             if (!string.IsNullOrWhiteSpace(matKhauMoi))
                 Db.Exec(@"UPDATE TAIKHOAN SET MatKhau = @MatKhauMoi WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK), Db.P("@MatKhauMoi", AuthHelper.Sha256(matKhauMoi)));
 
+            GhiNhatKy("Sua", "Tài khoản", $"Cập nhật tài khoản #{maTK} ({hoTen.Trim()})." + (string.IsNullOrWhiteSpace(matKhauMoi) ? "" : " Đã đặt lại mật khẩu."));
             TempData["ThanhCong"] = "Đã cập nhật tài khoản.";
             return RedirectToAction("TaiKhoan");
         }
@@ -308,6 +362,7 @@ namespace DormManager.Controllers
                 if (Convert.ToInt32(lienQuan) > 0)
                 {
                     Db.Exec(@"UPDATE TAIKHOAN SET TrangThai = 'BiKhoa' WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK));
+                    GhiNhatKy("Sua", "Tài khoản", $"Tài khoản #{maTK} (SV {mssv}) có dữ liệu liên quan nên khóa thay vì xóa.");
                     TempData["Loi"] = "Tài khoản có dữ liệu liên quan nên không thể xóa - đã chuyển sang trạng thái Bị khóa.";
                     return RedirectToAction("TaiKhoan");
                 }
@@ -320,6 +375,7 @@ namespace DormManager.Controllers
                 if (Convert.ToInt32(coDon) > 0)
                 {
                     Db.Exec(@"UPDATE TAIKHOAN SET TrangThai = 'BiKhoa' WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK));
+                    GhiNhatKy("Sua", "Tài khoản", $"Tài khoản #{maTK} (QL {maNV}) đang phụ trách đơn từ nên khóa thay vì xóa.");
                     TempData["Loi"] = "Quản lý đang phụ trách đơn từ nên không thể xóa - đã khóa tài khoản.";
                     return RedirectToAction("TaiKhoan");
                 }
@@ -327,8 +383,36 @@ namespace DormManager.Controllers
             }
 
             Db.Exec(@"DELETE FROM TAIKHOAN WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK));
+            GhiNhatKy("Xoa", "Tài khoản", $"Xóa tài khoản #{maTK}.");
             TempData["ThanhCong"] = "Đã xóa tài khoản.";
             return RedirectToAction("TaiKhoan");
+        }
+
+        // ============ Báo cáo công nợ sinh viên ============
+        public IActionResult BaoCaoCongNo()
+        {
+            var ds = QuanTriRepo.BaoCaoCongNo();   // sp_BaoCaoCongNo
+            ViewBag.DsCongNo = ds;
+
+            decimal tongNo = 0;
+            foreach (System.Data.DataRow r in ds.Rows) tongNo += Convert.ToDecimal(r["TongNo"]);
+            ViewBag.TongNoHeThong = tongNo;
+            ViewBag.SoSVNo = ds.Rows.Count;
+            return View();
+        }
+
+        // ============ Nhật ký thao tác hệ thống (audit log) ============
+        public IActionResult NhatKy(string? hanhDong, string? doiTuong)
+        {
+            ViewBag.DsNhatKy = Db.Query(@"SELECT MaNhatKy, HoTenNguoiThucHien, VaiTro, HanhDong, DoiTuong, NoiDung, ThoiGian
+    FROM NHATKY
+    WHERE (@HanhDong IS NULL OR HanhDong = @HanhDong)
+      AND (@DoiTuong IS NULL OR DoiTuong = @DoiTuong)
+    ORDER BY ThoiGian DESC;",
+                Db.P("@HanhDong", string.IsNullOrWhiteSpace(hanhDong) ? null : hanhDong),
+                Db.P("@DoiTuong", string.IsNullOrWhiteSpace(doiTuong) ? null : doiTuong));
+            ViewBag.DsDoiTuong = Db.Query(@"SELECT DISTINCT DoiTuong FROM NHATKY ORDER BY DoiTuong;");
+            return View();
         }
     }
 }

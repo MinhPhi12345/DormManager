@@ -31,9 +31,15 @@ namespace DormManager.Controllers
         // Chi tiết + xử lý đơn (đổi trạng thái, ưu tiên, phản hồi → gửi thông báo)
         public IActionResult ChiTietDon(int id)
         {
-            var dt = Db.Query(@"SELECT d.*, sv.HoTen, q.HoTen AS TenNV FROM DONYEUCAU d
+            var dt = Db.Query(@"SELECT d.*, sv.HoTen, q.HoTen AS TenNV,
+           gCu.MaPhong AS MaPhongCu,
+           gMoi.MaPhong AS MaPhongMoi
+    FROM DONYEUCAU d
     JOIN SINHVIEN sv ON sv.MSSV = d.MSSV
     LEFT JOIN QUANLY q ON q.MaNV = d.MaNV
+    LEFT JOIN PHIEUDANGKY pd ON pd.MaPhieu = d.MaPhieu
+    LEFT JOIN GIUONG gCu ON gCu.MaGiuong = pd.MaGiuong
+    LEFT JOIN GIUONG gMoi ON gMoi.MaGiuong = d.MaGiuongMoi
     WHERE d.MaDon = @MaDon;", Db.P("@MaDon", id));
             if (dt.Rows.Count == 0) return RedirectToAction("DonYeuCau");
             ViewBag.Don = dt.Rows[0];
@@ -107,6 +113,28 @@ namespace DormManager.Controllers
             QuanLyRepo.XacNhanTraPhong(maDon, MaNV);   // sp_XacNhanTraPhong (transaction)
             TempData["ThanhCong"] = "Đã xác nhận trả phòng. Giường đã được giải phóng và sinh viên đã được thông báo.";
             return RedirectToAction("ChiTietDon", new { id = maDon });
+        }
+
+        // Xác nhận chuyển phòng (đóng phiếu cũ + mở phiếu mới)
+        [HttpPost]
+        public IActionResult XacNhanChuyenPhong(int maDon)
+        {
+            QuanLyRepo.XacNhanChuyenPhong(maDon, MaNV);   // sp_XacNhanChuyenPhong (transaction)
+            TempData["ThanhCong"] = "Đã xác nhận chuyển phòng cho sinh viên. Đã gửi thông báo.";
+            return RedirectToAction("ChiTietDon", new { id = maDon });
+        }
+
+        // ============ Thống kê đánh giá phòng/KTX ============
+        public IActionResult DanhGiaPhong(string? maToa)
+        {
+            ViewBag.MaToa = maToa;
+            ViewBag.DsThongKe = QuanLyRepo.ThongKeDanhGia(string.IsNullOrWhiteSpace(maToa) ? null : maToa);
+            ViewBag.DsNhanXet = Db.Query(@"SELECT dg.MaDanhGia, dg.MaPhong, dg.SoSao, dg.NhanXet, dg.NgayDanhGia, sv.HoTen
+    FROM DANHGIA dg JOIN SINHVIEN sv ON sv.MSSV = dg.MSSV
+    WHERE (@MaToa IS NULL OR dg.MaPhong IN (SELECT MaPhong FROM PHONG WHERE MaToa = @MaToa))
+    ORDER BY dg.NgayDanhGia DESC;", Db.P("@MaToa", string.IsNullOrWhiteSpace(maToa) ? null : maToa));
+            ViewBag.DsToa = Db.Query(@"SELECT MaToa, TenToa FROM TOANHA ORDER BY MaToa;");
+            return View();
         }
 
         // ============ Danh sách + tra cứu phòng ============

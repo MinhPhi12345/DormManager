@@ -68,7 +68,8 @@ CREATE TABLE PHONG (
     SoGiuong      INT         NOT NULL CHECK (SoGiuong > 0),
     GiaPhong      DECIMAL(10,0) NOT NULL CHECK (GiaPhong >= 0), -- VNĐ/người/tháng
     TrangThai     VARCHAR(15) NOT NULL DEFAULT 'HoatDong' CHECK (TrangThai IN ('HoatDong','BaoTri','NgungSuDung')),
-    SoGiuongTrong INT         NOT NULL CHECK (SoGiuongTrong >= 0)
+    SoGiuongTrong INT         NOT NULL CHECK (SoGiuongTrong >= 0),
+    AnhPhong      NVARCHAR(255) NULL                    -- Đường dẫn ảnh phòng (vd '/uploads/phong/A1-201_123.jpg')
 );
 
 /* ============================ 6. GIUONG ============================= */
@@ -103,20 +104,24 @@ CREATE TABLE PHIEUDANGKY (
 );
 
 /* =========================== 9. DONYEUCAU =============================
-   LoaiDon có thêm 'TraPhong' (yêu cầu trả phòng do SV gửi, QL xác nhận).
-   MaPhieu liên kết đơn với hợp đồng - chỉ dùng khi LoaiDon='TraPhong'. */
+   LoaiDon có thêm 'TraPhong' (yêu cầu trả phòng do SV gửi, QL xác nhận) và
+   'ChuyenPhong' (yêu cầu chuyển phòng do SV gửi, QL xác nhận).
+   MaPhieu liên kết đơn với hợp đồng hiện tại - dùng khi LoaiDon='TraPhong'
+   hoặc 'ChuyenPhong'. MaGiuongMoi là giường SV muốn chuyển đến - chỉ dùng
+   khi LoaiDon='ChuyenPhong'. */
 CREATE TABLE DONYEUCAU (
-    MaDon     INT IDENTITY(1,1) PRIMARY KEY,
-    MSSV      VARCHAR(10)  NOT NULL FOREIGN KEY REFERENCES SINHVIEN(MSSV),
-    MaNV      VARCHAR(10)  NULL FOREIGN KEY REFERENCES QUANLY(MaNV),
-    MaPhieu   INT          NULL FOREIGN KEY REFERENCES PHIEUDANGKY(MaPhieu),
-    LoaiDon   VARCHAR(10)  NOT NULL CHECK (LoaiDon IN ('PhanHoi','DeXuat','TraPhong')),
-    TieuDe    NVARCHAR(200) NOT NULL,
-    NoiDung   NVARCHAR(MAX) NOT NULL,
-    MucUuTien VARCHAR(10)  NOT NULL DEFAULT 'TrungBinh' CHECK (MucUuTien IN ('Cao','TrungBinh','Thap')),
-    TrangThai VARCHAR(10)  NOT NULL DEFAULT 'ChoXuLy' CHECK (TrangThai IN ('ChoXuLy','DangXuLy','DaXuLy','TuChoi')),
-    PhanHoi   NVARCHAR(MAX) NULL,
-    NgayTao   DATETIME     NOT NULL DEFAULT GETDATE()
+    MaDon       INT IDENTITY(1,1) PRIMARY KEY,
+    MSSV        VARCHAR(10)  NOT NULL FOREIGN KEY REFERENCES SINHVIEN(MSSV),
+    MaNV        VARCHAR(10)  NULL FOREIGN KEY REFERENCES QUANLY(MaNV),
+    MaPhieu     INT          NULL FOREIGN KEY REFERENCES PHIEUDANGKY(MaPhieu),
+    MaGiuongMoi VARCHAR(15)  NULL FOREIGN KEY REFERENCES GIUONG(MaGiuong),
+    LoaiDon     VARCHAR(12)  NOT NULL CHECK (LoaiDon IN ('PhanHoi','DeXuat','TraPhong','ChuyenPhong')),
+    TieuDe      NVARCHAR(200) NOT NULL,
+    NoiDung     NVARCHAR(MAX) NOT NULL,
+    MucUuTien   VARCHAR(10)  NOT NULL DEFAULT 'TrungBinh' CHECK (MucUuTien IN ('Cao','TrungBinh','Thap')),
+    TrangThai   VARCHAR(10)  NOT NULL DEFAULT 'ChoXuLy' CHECK (TrangThai IN ('ChoXuLy','DangXuLy','DaXuLy','TuChoi')),
+    PhanHoi     NVARCHAR(MAX) NULL,
+    NgayTao     DATETIME     NOT NULL DEFAULT GETDATE()
 );
 
 /* ======================== 10. CHISODIENNUOC ========================= */
@@ -205,6 +210,36 @@ CREATE TABLE THAMSO (
 );
 GO
 
+/* ============================ 17. DANHGIA =============================
+   Sinh viên đánh giá phòng/KTX sau khi đã trả phòng (1 hợp đồng chỉ được
+   đánh giá 1 lần - ràng buộc UNIQUE trên MaPhieu). QL/QTV xem thống kê
+   điểm trung bình theo phòng/tòa qua sp_ThongKeDanhGia. */
+CREATE TABLE DANHGIA (
+    MaDanhGia   INT IDENTITY(1,1) PRIMARY KEY,
+    MaPhieu     INT UNIQUE NOT NULL FOREIGN KEY REFERENCES PHIEUDANGKY(MaPhieu),
+    MSSV        VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES SINHVIEN(MSSV),
+    MaPhong     VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES PHONG(MaPhong),
+    SoSao       INT NOT NULL CHECK (SoSao BETWEEN 1 AND 5),
+    NhanXet     NVARCHAR(500) NULL,
+    NgayDanhGia DATETIME NOT NULL DEFAULT GETDATE()
+);
+GO
+
+/* ============================ 18. NHATKY ==============================
+   Nhật ký thao tác hệ thống (audit log) - ghi lại ai thêm/sửa/xóa phòng,
+   tài khoản, đơn giá... Chỉ Quản trị viên xem được (trang Nhật ký hệ thống). */
+CREATE TABLE NHATKY (
+    MaNhatKy           INT IDENTITY(1,1) PRIMARY KEY,
+    MaTK               INT NULL FOREIGN KEY REFERENCES TAIKHOAN(MaTK),
+    HoTenNguoiThucHien NVARCHAR(100) NULL,
+    VaiTro             VARCHAR(10) NULL,
+    HanhDong           VARCHAR(20) NOT NULL CHECK (HanhDong IN ('Them','Sua','Xoa')),
+    DoiTuong           NVARCHAR(50) NOT NULL,
+    NoiDung            NVARCHAR(500) NOT NULL,
+    ThoiGian           DATETIME NOT NULL DEFAULT GETDATE()
+);
+GO
+
 /* =====================================================================
    DỮ LIỆU MẪU
    Mật khẩu mặc định của MỌI tài khoản là: 123456
@@ -223,7 +258,8 @@ INSERT INTO THAMSO (MaThamSo, GiaTri, GhiChu) VALUES
 ('TS7','3500', N'Đơn giá điện trần theo quy định pháp luật (VNĐ/kWh)'),
 ('TS8','25000',N'Đơn giá nước trần theo quy định pháp luật (VNĐ/m³)'),
 ('TS9','6-8', N'Loại phòng tiêu chuẩn dành cho sinh viên diện chính sách'),
-('TS10','2', N'Số tháng của đợt lưu trú Học kỳ hè');
+('TS10','2', N'Số tháng của đợt lưu trú Học kỳ hè'),
+('TS11','15',N'Số ngày tối thiểu phải ở tại phòng hiện tại trước khi được đăng ký chuyển phòng');
 
 -- Tài khoản
 INSERT INTO TAIKHOAN (TenDangNhap, MatKhau, Email, SDT, VaiTro) VALUES
@@ -290,6 +326,19 @@ INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetT
 -- Giữ chỗ cho phiếu ChoDoiChieu
 UPDATE GIUONG SET TrangThai='DaSuDung' WHERE MaGiuong='A1-202-G1';
 UPDATE PHONG SET SoGiuongTrong = 5 WHERE MaPhong='A1-202';
+
+-- Hợp đồng mẫu đã trả phòng (MaPhieu=5, phục vụ demo tính năng Đánh giá phòng)
+INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetThuc, TrangThai) VALUES
+('26DH113347', 'A1-301-G1', 3, '2026-05-10', '2026-05-15', '2026-07-15', 'DaTraPhong');
+
+-- Đánh giá phòng sau khi trả phòng
+INSERT INTO DANHGIA (MaPhieu, MSSV, MaPhong, SoSao, NhanXet, NgayDanhGia) VALUES
+(5, '26DH113347', 'A1-301', 5, N'Phòng thoáng mát, sạch sẽ, quản lý hỗ trợ nhiệt tình.', '2026-07-16');
+
+-- Nhật ký thao tác hệ thống mẫu
+INSERT INTO NHATKY (MaTK, HoTenNguoiThucHien, VaiTro, HanhDong, DoiTuong, NoiDung) VALUES
+(1, N'Quản trị viên', 'QTV', 'Sua', N'Đơn giá điện/nước', N'Cập nhật biểu giá điện/nước áp dụng từ 01/01/2026.'),
+(1, N'Quản trị viên', 'QTV', 'Them', N'Phòng', N'Thêm phòng A1-301 (8 giường) vào tòa A1.');
 
 -- Đơn giá điện nước
 INSERT INTO DONGIA (GiaDien, GiaNuoc, PhiDichVu, NgayApDung, TrangThai) VALUES

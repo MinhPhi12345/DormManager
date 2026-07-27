@@ -64,5 +64,13 @@ namespace DormManager.Data
         /// <summary>sp_MoKhoa: transaction mở khóa tài khoản + gửi thông báo.</summary>
         public static void MoKhoa(int maTK)
             => Db.ExecProc("sp_MoKhoa", Db.P("@MaTK", maTK));
+
+        /// <summary>sp_XacNhanChuyenPhong: transaction đóng phiếu cũ + mở phiếu mới + cập nhật 2 phòng.</summary>
+        public static void XacNhanChuyenPhong(int maDon, string? maNV)
+            => Db.ExecProc("sp_XacNhanChuyenPhong", Db.P("@MaDon", maDon), Db.P("@MaNV", maNV));
+
+        /// <summary>sp_ThongKeDanhGia: điểm đánh giá phòng trung bình theo phòng/tòa.</summary>
+        public static DataTable ThongKeDanhGia(string? maToa)
+            => Db.QueryProc("sp_ThongKeDanhGia", Db.P("@MaToa", maToa));
     }
 }

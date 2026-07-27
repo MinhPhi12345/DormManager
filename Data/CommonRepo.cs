@@ -20,5 +20,11 @@ namespace DormManager.Data
         public static void ThemThongBao(string mssv, int? maHD, string noiDung, string kenh = "Email")
             => Db.ExecProc("sp_Chung_ThemThongBao",
                 Db.P("@MSSV", mssv), Db.P("@MaHD", (object?)maHD), Db.P("@NoiDung", noiDung), Db.P("@Kenh", kenh));
+
+        /// <summary>sp_Chung_ThemNhatKy: ghi 1 dòng nhật ký thao tác hệ thống (audit log) cho QTV.</summary>
+        public static void ThemNhatKy(int? maTK, string? hoTen, string? vaiTro, string hanhDong, string doiTuong, string noiDung)
+            => Db.ExecProc("sp_Chung_ThemNhatKy",
+                Db.P("@MaTK", (object?)maTK), Db.P("@HoTen", hoTen), Db.P("@VaiTro", vaiTro),
+                Db.P("@HanhDong", hanhDong), Db.P("@DoiTuong", doiTuong), Db.P("@NoiDung", noiDung));
     }
 }

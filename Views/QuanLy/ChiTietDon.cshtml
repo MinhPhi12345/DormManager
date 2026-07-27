@@ -26,6 +26,14 @@
                 · @(Convert.ToDateTime(d["NgayTao"]).ToString("HH:mm dd/MM/yyyy"))
             </div>
             <div class="don-content small">@d["NoiDung"]</div>
+            @if (d["LoaiDon"].ToString() == "ChuyenPhong")
+            {
+                <hr class="my-3" />
+                <div class="small">
+                    <i class="bi bi-arrow-left-right me-1 text-dm"></i>
+                    Chuyển từ phòng <b>@d["MaPhongCu"]</b> sang phòng <b>@d["MaPhongMoi"]</b>
+                </div>
+            }
             @if (d["TenNV"] != DBNull.Value)
             {
                 <div class="small text-muted mt-3"><i class="bi bi-person-badge me-1"></i>Người phụ trách: @d["TenNV"]</div>
@@ -47,6 +55,22 @@
                 </form>
             </div>
         }
+        @if (d["LoaiDon"].ToString() == "ChuyenPhong" && d["TrangThai"].ToString() != "DaXuLy" && d["TrangThai"].ToString() != "TuChoi")
+        {
+            <div class="card p-4 mb-3 border-warning">
+                <h3 class="h6 fw-bold mb-2"><i class="bi bi-arrow-left-right me-2 text-warning"></i>Xác nhận chuyển phòng</h3>
+                <p class="small text-muted">
+                    Xác nhận sẽ đóng hợp đồng ở phòng <b>@d["MaPhongCu"]</b>, mở hợp đồng mới ở phòng <b>@d["MaPhongMoi"]</b>
+                    và cập nhật số giường trống của cả 2 phòng ngay lập tức.
+                </p>
+                <form method="post" asp-action="XacNhanChuyenPhong"
+                      data-confirm-title="Xác nhận chuyển phòng" data-confirm-level="success"
+                      data-confirm-message="Xác nhận chuyển sinh viên sang phòng @d["MaPhongMoi"]?">
+                    <input type="hidden" name="maDon" value="@d["MaDon"]" />
+                    <button type="submit" class="btn btn-warning w-100"><i class="bi bi-check-lg me-1"></i>Xác nhận chuyển phòng</button>
+                </form>
+            </div>
+        }
         <div class="card p-4">
             <h3 class="h6 fw-bold mb-3"><i class="bi bi-gear me-2 text-dm"></i>Xử lý đơn (đổi ưu tiên / từ chối / phản hồi)</h3>
             <form method="post" asp-action="XuLyDon">
@@ -64,7 +88,7 @@
                     <select name="trangThai" class="form-select">
                         <option value="ChoXuLy" selected="@(d["TrangThai"].ToString() == "ChoXuLy")">Chờ xử lý</option>
                         <option value="DangXuLy" selected="@(d["TrangThai"].ToString() == "DangXuLy")">Đang xử lý</option>
-                        @if (d["LoaiDon"].ToString() != "TraPhong")
+                        @if (d["LoaiDon"].ToString() != "TraPhong" && d["LoaiDon"].ToString() != "ChuyenPhong")
                         {
                             <option value="DaXuLy" selected="@(d["TrangThai"].ToString() == "DaXuLy")">Đã xử lý</option>
                         }

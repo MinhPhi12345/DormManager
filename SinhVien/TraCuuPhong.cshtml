@@ -1,0 +1,150 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Tra cứu phòng";
+    DataTable dsPhong = ViewBag.DsPhong;
+    DataTable dsToa = ViewBag.DsToa;
+}
+
+@* Tra cứu phòng | View phức tạp -> style External *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/tracuuphong.css" />
+    <link rel="stylesheet" href="~/css/banner.css" />
+
+    @{
+        DataTable dsDotMo = ViewBag.DsDotMo;
+        DataRow? dotPhuHop = null, dotKhongPhuHop = null;
+        if (dsDotMo != null)
+        {
+            foreach (DataRow r in dsDotMo.Rows)
+            {
+                if (Convert.ToInt32(r["PhuHop"]) == 1) { dotPhuHop = r; break; }
+                else if (dotKhongPhuHop == null) { dotKhongPhuHop = r; }
+            }
+        }
+    }
+
+    @if (dotPhuHop != null)
+    {
+        <div class="dot-banner dot-banner-mo">
+            <div class="dot-banner-icon"><i class="bi bi-calendar-check-fill"></i></div>
+            <div class="dot-banner-body">
+                <div class="dot-banner-title">
+                    Đợt đăng ký đang mở: @dotPhuHop["TenDot"]
+                    @if (dotPhuHop["LoaiDot"].ToString() == "UuTien")
+                    {
+                        <span class="badge dot-badge-uutien ms-1">Ưu tiên - dành cho bạn</span>
+                    }
+                </div>
+                <div class="dot-banner-sub">
+                    Học kỳ @dotPhuHop["HocKy"] · Hạn đăng ký: <b>@(Convert.ToDateTime(dotPhuHop["NgayDong"]).ToString("HH:mm dd/MM/yyyy"))</b>
+                </div>
+            </div>
+            <a asp-controller="SinhVien" asp-action="TraCuuPhong" class="btn btn-dm dot-banner-btn">Đăng ký ngay</a>
+        </div>
+    }
+    else if (dotKhongPhuHop != null)
+    {
+        <div class="dot-banner dot-banner-khongphuhop">
+            <div class="dot-banner-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div class="dot-banner-body">
+                <div class="dot-banner-title">Đợt đăng ký ưu tiên tân sinh viên đang mở</div>
+                <div class="dot-banner-sub">
+                    @dotKhongPhuHop["TenDot"] chỉ dành cho tân sinh viên. Vui lòng chờ đợt đại trà
+                    (sau <b>@(Convert.ToDateTime(dotKhongPhuHop["NgayDong"]).ToString("dd/MM/yyyy"))</b>).
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="dot-banner dot-banner-dong">
+            <div class="dot-banner-icon"><i class="bi bi-calendar-x"></i></div>
+            <div class="dot-banner-body">
+                <div class="dot-banner-title">Hiện chưa có đợt đăng ký nào đang mở</div>
+                <div class="dot-banner-sub">Vui lòng theo dõi thông báo từ Ban quản lý KTX để biết lịch đăng ký tiếp theo.</div>
+            </div>
+        </div>
+    }
+}
+
+@if ((bool)ViewBag.LaChinhSach)
+{
+    <div class="alert alert-warning py-2 small">
+        <i class="bi bi-info-circle me-1"></i>
+ Bạn thuộc diện chính sách: hệ thống chỉ hiển thị các phòng tiêu chuẩn 6-8 giường.
+    </div>
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label small mb-1">Tìm kiếm</label>
+                <input type="text" name="tuKhoa" value="@Context.Request.Query["tuKhoa"]"
+                       class="form-control" placeholder="Mã phòng, tên tòa nhà..." />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Tòa nhà</label>
+                <select name="maToa" class="form-select">
+                    <option value="">Tất cả</option>
+                    @foreach (DataRow t in dsToa.Rows)
+                    {
+                        <option value="@t["MaToa"]" selected="@(Context.Request.Query["maToa"] == t["MaToa"].ToString())">@t["TenToa"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Loại phòng</label>
+                <select name="loaiPhong" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="4" selected="@(Context.Request.Query["loaiPhong"] == "4")">4 giường</option>
+                    <option value="6" selected="@(Context.Request.Query["loaiPhong"] == "6")">6 giường</option>
+                    <option value="8" selected="@(Context.Request.Query["loaiPhong"] == "8")">8 giường</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Mức giá</label>
+                <select name="mucGia" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="duoi400" selected="@(Context.Request.Query["mucGia"] == "duoi400")">Dưới 400k</option>
+                    <option value="400den600" selected="@(Context.Request.Query["mucGia"] == "400den600")">400k - 600k</option>
+                    <option value="tren600" selected="@(Context.Request.Query["mucGia"] == "tren600")">Trên 600k</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <button type="submit" class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Tra cứu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3">
+    @if (dsPhong.Rows.Count == 0)
+    {
+        <div class="col-12"><div class="alert alert-secondary">Không tìm thấy phòng nào phù hợp.</div></div>
+    }
+    @foreach (DataRow p in dsPhong.Rows)
+    {
+        int trong = Convert.ToInt32(p["SoGiuongTrong"]);
+        <div class="col-12 col-sm-6 col-lg-4 col-xxl-3">
+            <div class="room-card card h-100">
+                <div class="room-card-top">
+                    <span class="room-code">@p["MaPhong"]</span>
+                    <span class="badge @(trong > 0 ? "text-bg-success" : "text-bg-secondary")">
+                        @(trong > 0 ? $"Còn {trong} giường" : "Hết chỗ")
+                    </span>
+                </div>
+                <div class="card-body pt-2">
+                    <div class="room-info"><i class="bi bi-building"></i> @p["TenToa"] · Tầng @p["Tang"]</div>
+                    <div class="room-info"><i class="bi bi-people"></i> Phòng @p["LoaiPhong"] giường</div>
+                    <div class="room-price">@(Convert.ToDecimal(p["GiaPhong"]).ToString("N0"))đ<span>/người/tháng</span></div>
+                </div>
+                <div class="card-footer bg-transparent border-0 pb-3">
+                    <a asp-action="ChiTietPhong" asp-route-id="@p["MaPhong"]" class="btn btn-outline-success w-100">
+                        Xem chi tiết &amp; đăng ký
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+</div>

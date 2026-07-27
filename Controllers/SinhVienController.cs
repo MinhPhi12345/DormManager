@@ -70,6 +70,11 @@ namespace DormManager.Controllers
     JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
     JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
     WHERE g.MaPhong = @MaPhong AND pd.TrangThai = 'DangO';", Db.P("@MaPhong", id));
+
+            var danhGia = Db.Query(@"SELECT COUNT(*) AS SoLuot, AVG(CAST(SoSao AS DECIMAL(3,2))) AS DiemTB
+    FROM DANHGIA WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", id));
+            ViewBag.SoLuotDanhGia = danhGia.Rows[0]["SoLuot"];
+            ViewBag.DiemDanhGiaTB = danhGia.Rows[0]["DiemTB"];
             return View();
         }
 
@@ -165,7 +170,10 @@ namespace DormManager.Controllers
             ViewBag.DsHopDong = Db.Query(@"SELECT pd.MaPhieu, pd.MaGiuong, pd.NgayDangKy, pd.NgayBatDau, pd.NgayKetThuc, pd.TrangThai,
            p.MaPhong, p.GiaPhong, t.TenToa, d.TenDot, d.HocKy,
            (SELECT TOP 1 MaDon FROM DONYEUCAU
-            WHERE MaPhieu = pd.MaPhieu AND LoaiDon = 'TraPhong' AND TrangThai IN ('ChoXuLy','DangXuLy')) AS MaDonTraPhongChoXL
+            WHERE MaPhieu = pd.MaPhieu AND LoaiDon = 'TraPhong' AND TrangThai IN ('ChoXuLy','DangXuLy')) AS MaDonTraPhongChoXL,
+           (SELECT TOP 1 MaDon FROM DONYEUCAU
+            WHERE MaPhieu = pd.MaPhieu AND LoaiDon = 'ChuyenPhong' AND TrangThai IN ('ChoXuLy','DangXuLy')) AS MaDonChuyenPhongChoXL,
+           CASE WHEN EXISTS (SELECT 1 FROM DANHGIA WHERE MaPhieu = pd.MaPhieu) THEN 1 ELSE 0 END AS DaDanhGia
     FROM PHIEUDANGKY pd
     JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
     JOIN PHONG p  ON p.MaPhong  = g.MaPhong
@@ -318,6 +326,133 @@ namespace DormManager.Controllers
             Db.Exec(@"DELETE FROM DONYEUCAU WHERE MaDon = @MaDon AND MSSV = @MSSV;", Db.P("@MaDon", maDon), Db.P("@MSSV", MSSV));
             TempData["ThanhCong"] = "Đã xóa đơn.";
             return RedirectToAction("DonYeuCau", new { loai });
+        }
+
+        // ============ Đăng ký chuyển phòng ============
+        [HttpGet]
+        public IActionResult ChuyenPhong(int maPhieu)
+        {
+            var (loi, pd) = KiemTraChuyenPhong(maPhieu);
+            if (pd == null) { TempData["Loi"] = loi; return RedirectToAction("HopDong"); }
+
+            var doiTuong = Db.Scalar(@"SELECT DoiTuong FROM SINHVIEN WHERE MSSV = @MSSV;", Db.P("@MSSV", MSSV))?.ToString();
+            bool laChinhSach = doiTuong == "ChinhSach";
+
+            ViewBag.Phieu = pd;
+            ViewBag.DsGiuong = Db.Query(@"SELECT g.MaGiuong, p.MaPhong, p.LoaiPhong, p.GiaPhong, p.Tang, t.TenToa
+    FROM GIUONG g JOIN PHONG p ON p.MaPhong = g.MaPhong JOIN TOANHA t ON t.MaToa = p.MaToa
+    WHERE g.TrangThai = 'Trong' AND p.TrangThai = 'HoatDong' AND p.MaPhong <> @MaPhongHienTai
+      AND (@ChiTieuChuan = 0 OR p.LoaiPhong IN ('6','8'))
+    ORDER BY t.MaToa, p.Tang, p.MaPhong;",
+                Db.P("@MaPhongHienTai", pd["MaPhong"]), Db.P("@ChiTieuChuan", laChinhSach));
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult GuiDonChuyenPhong(int maPhieu, string maGiuongMoi)
+        {
+            var (loi, pd) = KiemTraChuyenPhong(maPhieu);
+            if (pd == null) { TempData["Loi"] = loi; return RedirectToAction("HopDong"); }
+
+            var g = Db.Query(@"SELECT g.MaGiuong, g.TrangThai, p.MaPhong, p.TrangThai AS TrangThaiPhong
+    FROM GIUONG g JOIN PHONG p ON p.MaPhong = g.MaPhong WHERE g.MaGiuong = @MaGiuongMoi;", Db.P("@MaGiuongMoi", maGiuongMoi));
+            if (g.Rows.Count == 0 || g.Rows[0]["TrangThai"].ToString() != "Trong" || g.Rows[0]["TrangThaiPhong"].ToString() != "HoatDong")
+            {
+                TempData["Loi"] = "Giường bạn chọn không còn trống. Vui lòng chọn giường khác.";
+                return RedirectToAction("ChuyenPhong", new { maPhieu });
+            }
+
+            string maPhongCu = pd["MaPhong"].ToString()!;
+            string maPhongMoi = g.Rows[0]["MaPhong"].ToString()!;
+            if (maPhongMoi == maPhongCu)
+            {
+                TempData["Loi"] = "Bạn đang ở chính phòng này rồi, vui lòng chọn phòng khác.";
+                return RedirectToAction("ChuyenPhong", new { maPhieu });
+            }
+
+            Db.Exec(@"INSERT INTO DONYEUCAU (MSSV, LoaiDon, TieuDe, NoiDung, MucUuTien, TrangThai, MaPhieu, MaGiuongMoi)
+    VALUES (@MSSV, 'ChuyenPhong', @TieuDe, @NoiDung, 'TrungBinh', 'ChoXuLy', @MaPhieu, @MaGiuongMoi);",
+                Db.P("@MSSV", MSSV), Db.P("@MaPhieu", maPhieu), Db.P("@MaGiuongMoi", maGiuongMoi),
+                Db.P("@TieuDe", $"Yêu cầu chuyển phòng {maPhongCu} → {maPhongMoi}"),
+                Db.P("@NoiDung", $"Sinh viên yêu cầu chuyển từ phòng {maPhongCu} sang phòng {maPhongMoi} (giường {maGiuongMoi}). Vui lòng đối chiếu và xác nhận."));
+
+            TempData["ThanhCong"] = "Đã gửi yêu cầu chuyển phòng tới Ban quản lý. Vui lòng chờ xác nhận.";
+            return RedirectToAction("HopDong");
+        }
+
+        /// <summary>Kiểm tra điều kiện chuyển phòng: hợp đồng đang ở, chưa có đơn chuyển/trả phòng nào
+        /// đang chờ xử lý, đã ở đủ số ngày tối thiểu (TS11), không còn nợ hóa đơn phòng hiện tại.</summary>
+        private (string? loi, System.Data.DataRow? pd) KiemTraChuyenPhong(int maPhieu)
+        {
+            var dt = Db.Query(@"SELECT pd.MaPhieu, pd.NgayBatDau, pd.NgayKetThuc, pd.TrangThai, g.MaPhong, p.LoaiPhong
+    FROM PHIEUDANGKY pd JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong JOIN PHONG p ON p.MaPhong = g.MaPhong
+    WHERE pd.MaPhieu = @MaPhieu AND pd.MSSV = @MSSV;", Db.P("@MaPhieu", maPhieu), Db.P("@MSSV", MSSV));
+            if (dt.Rows.Count == 0) return ("Không tìm thấy hợp đồng.", null);
+            var pd = dt.Rows[0];
+
+            if (pd["TrangThai"].ToString() != "DangO")
+                return ("Chỉ có thể chuyển phòng khi hợp đồng đang ở trạng thái Đang ở.", null);
+
+            var coDonChoXL = Db.Scalar(@"SELECT COUNT(*) FROM DONYEUCAU
+    WHERE MaPhieu = @MaPhieu AND LoaiDon IN ('ChuyenPhong','TraPhong') AND TrangThai IN ('ChoXuLy','DangXuLy');", Db.P("@MaPhieu", maPhieu));
+            if (Convert.ToInt32(coDonChoXL) > 0)
+                return ("Bạn đang có yêu cầu chuyển phòng/trả phòng chờ xử lý cho hợp đồng này.", null);
+
+            int soNgayToiThieu = CommonRepo.LayThamSoInt("TS11");
+            int soNgayDaO = (DateTime.Today - Convert.ToDateTime(pd["NgayBatDau"])).Days;
+            if (soNgayDaO < soNgayToiThieu)
+                return ($"Bạn cần ở tối thiểu {soNgayToiThieu} ngày trước khi được đăng ký chuyển phòng (hiện đã ở {Math.Max(soNgayDaO, 0)} ngày).", null);
+
+            var noHD = Db.Scalar(@"SELECT COUNT(*) FROM HOADON WHERE MaPhong = @MaPhong AND TrangThai IN ('ChoThanhToan','QuaHan');", Db.P("@MaPhong", pd["MaPhong"]));
+            if (Convert.ToInt32(noHD) > 0)
+                return ("Phòng hiện tại còn hóa đơn chưa thanh toán. Vui lòng hoàn thành nghĩa vụ tài chính trước khi chuyển phòng.", null);
+
+            return (null, pd);
+        }
+
+        // ============ Đánh giá phòng/KTX sau khi trả phòng ============
+        [HttpGet]
+        public IActionResult DanhGia(int maPhieu)
+        {
+            var (loi, pd) = KiemTraDanhGia(maPhieu);
+            if (pd == null) { TempData["Loi"] = loi; return RedirectToAction("HopDong"); }
+            ViewBag.Phieu = pd;
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult GuiDanhGia(int maPhieu, int soSao, string? nhanXet)
+        {
+            var (loi, pd) = KiemTraDanhGia(maPhieu);
+            if (pd == null) { TempData["Loi"] = loi; return RedirectToAction("HopDong"); }
+
+            if (soSao < 1 || soSao > 5)
+            {
+                TempData["Loi"] = "Số sao đánh giá phải từ 1 đến 5.";
+                return RedirectToAction("DanhGia", new { maPhieu });
+            }
+
+            Db.Exec(@"INSERT INTO DANHGIA (MaPhieu, MSSV, MaPhong, SoSao, NhanXet)
+    VALUES (@MaPhieu, @MSSV, @MaPhong, @SoSao, @NhanXet);",
+                Db.P("@MaPhieu", maPhieu), Db.P("@MSSV", MSSV), Db.P("@MaPhong", pd["MaPhong"]),
+                Db.P("@SoSao", soSao), Db.P("@NhanXet", string.IsNullOrWhiteSpace(nhanXet) ? null : nhanXet.Trim()));
+
+            TempData["ThanhCong"] = "Cảm ơn bạn đã đánh giá phòng!";
+            return RedirectToAction("HopDong");
+        }
+
+        /// <summary>Chỉ được đánh giá phòng của chính mình, khi hợp đồng đã Trả phòng và chưa đánh giá lần nào.</summary>
+        private (string? loi, System.Data.DataRow? pd) KiemTraDanhGia(int maPhieu)
+        {
+            var dt = Db.Query(@"SELECT pd.MaPhieu, g.MaPhong FROM PHIEUDANGKY pd
+    JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
+    WHERE pd.MaPhieu = @MaPhieu AND pd.MSSV = @MSSV AND pd.TrangThai = 'DaTraPhong';", Db.P("@MaPhieu", maPhieu), Db.P("@MSSV", MSSV));
+            if (dt.Rows.Count == 0) return ("Chỉ có thể đánh giá phòng sau khi đã trả phòng.", null);
+
+            var daDanhGia = Db.Scalar(@"SELECT COUNT(*) FROM DANHGIA WHERE MaPhieu = @MaPhieu;", Db.P("@MaPhieu", maPhieu));
+            if (Convert.ToInt32(daDanhGia) > 0) return ("Bạn đã đánh giá hợp đồng này rồi.", null);
+
+            return (null, dt.Rows[0]);
         }
 
         // ============ Lịch sử + tra cứu hóa đơn ============
