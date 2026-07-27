@@ -68,8 +68,7 @@ CREATE TABLE PHONG (
     SoGiuong      INT         NOT NULL CHECK (SoGiuong > 0),
     GiaPhong      DECIMAL(10,0) NOT NULL CHECK (GiaPhong >= 0), -- VNĐ/người/tháng
     TrangThai     VARCHAR(15) NOT NULL DEFAULT 'HoatDong' CHECK (TrangThai IN ('HoatDong','BaoTri','NgungSuDung')),
-    SoGiuongTrong INT         NOT NULL CHECK (SoGiuongTrong >= 0),
-    AnhPhong      NVARCHAR(255) NULL                    -- Đường dẫn ảnh phòng (vd '/uploads/phong/A1-201_123.jpg')
+    SoGiuongTrong INT         NOT NULL CHECK (SoGiuongTrong >= 0)
 );
 
 /* ============================ 6. GIUONG ============================= */
@@ -210,22 +209,7 @@ CREATE TABLE THAMSO (
 );
 GO
 
-/* ============================ 17. DANHGIA =============================
-   Sinh viên đánh giá phòng/KTX sau khi đã trả phòng (1 hợp đồng chỉ được
-   đánh giá 1 lần - ràng buộc UNIQUE trên MaPhieu). QL/QTV xem thống kê
-   điểm trung bình theo phòng/tòa qua sp_ThongKeDanhGia. */
-CREATE TABLE DANHGIA (
-    MaDanhGia   INT IDENTITY(1,1) PRIMARY KEY,
-    MaPhieu     INT UNIQUE NOT NULL FOREIGN KEY REFERENCES PHIEUDANGKY(MaPhieu),
-    MSSV        VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES SINHVIEN(MSSV),
-    MaPhong     VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES PHONG(MaPhong),
-    SoSao       INT NOT NULL CHECK (SoSao BETWEEN 1 AND 5),
-    NhanXet     NVARCHAR(500) NULL,
-    NgayDanhGia DATETIME NOT NULL DEFAULT GETDATE()
-);
-GO
-
-/* ============================ 18. NHATKY ==============================
+/* ============================ 17. NHATKY ==============================
    Nhật ký thao tác hệ thống (audit log) - ghi lại ai thêm/sửa/xóa phòng,
    tài khoản, đơn giá... Chỉ Quản trị viên xem được (trang Nhật ký hệ thống). */
 CREATE TABLE NHATKY (
@@ -327,13 +311,9 @@ INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetT
 UPDATE GIUONG SET TrangThai='DaSuDung' WHERE MaGiuong='A1-202-G1';
 UPDATE PHONG SET SoGiuongTrong = 5 WHERE MaPhong='A1-202';
 
--- Hợp đồng mẫu đã trả phòng (MaPhieu=5, phục vụ demo tính năng Đánh giá phòng)
+-- Hợp đồng mẫu đã trả phòng
 INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetThuc, TrangThai) VALUES
 ('26DH113347', 'A1-301-G1', 3, '2026-05-10', '2026-05-15', '2026-07-15', 'DaTraPhong');
-
--- Đánh giá phòng sau khi trả phòng
-INSERT INTO DANHGIA (MaPhieu, MSSV, MaPhong, SoSao, NhanXet, NgayDanhGia) VALUES
-(5, '26DH113347', 'A1-301', 5, N'Phòng thoáng mát, sạch sẽ, quản lý hỗ trợ nhiệt tình.', '2026-07-16');
 
 -- Nhật ký thao tác hệ thống mẫu
 INSERT INTO NHATKY (MaTK, HoTenNguoiThucHien, VaiTro, HanhDong, DoiTuong, NoiDung) VALUES

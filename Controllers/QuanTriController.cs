@@ -99,35 +99,9 @@ namespace DormManager.Controllers
             return View();
         }
 
-        // ============ Lưu ảnh phòng lên wwwroot/uploads/phong, trả về đường dẫn tương đối (hoặc null nếu không có ảnh) ============
-        private string? LuuAnhPhong(IFormFile? anhPhong, string maPhong)
-        {
-            if (anhPhong == null || anhPhong.Length == 0) return null;
-
-            var duoiHopLe = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-            var duoi = Path.GetExtension(anhPhong.FileName).ToLowerInvariant();
-            if (!duoiHopLe.Contains(duoi))
-            {
-                TempData["Loi"] = "Ảnh phòng chỉ chấp nhận định dạng JPG, PNG hoặc WEBP.";
-                return null;
-            }
-
-            var thuMuc = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "phong");
-            Directory.CreateDirectory(thuMuc);
-
-            // Đặt tên file theo mã phòng + timestamp để tránh cache ảnh cũ trên trình duyệt
-            var tenFile = $"{maPhong}_{DateTime.Now.Ticks}{duoi}";
-            var duongDanVatLy = Path.Combine(thuMuc, tenFile);
-
-            using (var fs = new FileStream(duongDanVatLy, FileMode.Create))
-                anhPhong.CopyTo(fs);
-
-            return $"/uploads/phong/{tenFile}";
-        }
-
         // ============ Thêm phòng mới ============
         [HttpPost]
-        public IActionResult ThemPhong(string maToa, int tang, string loaiPhong, decimal giaPhong, IFormFile? anhPhong)
+        public IActionResult ThemPhong(string maToa, int tang, string loaiPhong, decimal giaPhong)
         {
             int soGiuong = int.Parse(loaiPhong);
             var toa = Db.Query(@"SELECT SoTang FROM TOANHA WHERE MaToa = @MaToa;", Db.P("@MaToa", maToa));
@@ -143,13 +117,10 @@ namespace DormManager.Controllers
             do { maPhong = $"{maToa}-{tang}{stt:D2}"; stt++; }
             while (Convert.ToInt32(Db.Scalar(@"SELECT COUNT(*) FROM PHONG WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong))) > 0);
 
-            string? duongDanAnh = LuuAnhPhong(anhPhong, maPhong);
-
-            Db.Exec(@"INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong, AnhPhong)
-    VALUES (@MaPhong, @MaToa, @Tang, @LoaiPhong, @SoGiuong, @GiaPhong, 'HoatDong', @SoGiuong, @AnhPhong);",
+            Db.Exec(@"INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong)
+    VALUES (@MaPhong, @MaToa, @Tang, @LoaiPhong, @SoGiuong, @GiaPhong, 'HoatDong', @SoGiuong);",
                 Db.P("@MaPhong", maPhong), Db.P("@MaToa", maToa), Db.P("@Tang", tang),
-                Db.P("@LoaiPhong", loaiPhong), Db.P("@SoGiuong", soGiuong), Db.P("@GiaPhong", giaPhong),
-                Db.P("@AnhPhong", duongDanAnh));
+                Db.P("@LoaiPhong", loaiPhong), Db.P("@SoGiuong", soGiuong), Db.P("@GiaPhong", giaPhong));
 
             for (int i = 1; i <= soGiuong; i++)
                 Db.Exec(@"INSERT INTO GIUONG (MaGiuong, MaPhong) VALUES (@MaGiuong, @MaPhong);", Db.P("@MaGiuong", $"{maPhong}-G{i}"), Db.P("@MaPhong", maPhong));
@@ -161,16 +132,10 @@ namespace DormManager.Controllers
 
         // ============ Cập nhật phòng ============
         [HttpPost]
-        public IActionResult CapNhatPhong(string maPhong, decimal giaPhong, string trangThai, IFormFile? anhPhong)
+        public IActionResult CapNhatPhong(string maPhong, decimal giaPhong, string trangThai)
         {
-            string? duongDanAnh = LuuAnhPhong(anhPhong, maPhong);
-
-            if (duongDanAnh != null)
-                Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai, AnhPhong = @AnhPhong WHERE MaPhong = @MaPhong;",
-                    Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai), Db.P("@AnhPhong", duongDanAnh));
-            else
-                Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai WHERE MaPhong = @MaPhong;",
-                    Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai));
+            Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai WHERE MaPhong = @MaPhong;",
+                Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai));
 
             GhiNhatKy("Sua", "Phòng", $"Cập nhật phòng {maPhong}: giá {giaPhong:N0}đ, trạng thái {trangThai}.");
             TempData["ThanhCong"] = $"Đã cập nhật phòng {maPhong}.";

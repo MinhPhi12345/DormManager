@@ -124,19 +124,6 @@ namespace DormManager.Controllers
             return RedirectToAction("ChiTietDon", new { id = maDon });
         }
 
-        // ============ Thống kê đánh giá phòng/KTX ============
-        public IActionResult DanhGiaPhong(string? maToa)
-        {
-            ViewBag.MaToa = maToa;
-            ViewBag.DsThongKe = QuanLyRepo.ThongKeDanhGia(string.IsNullOrWhiteSpace(maToa) ? null : maToa);
-            ViewBag.DsNhanXet = Db.Query(@"SELECT dg.MaDanhGia, dg.MaPhong, dg.SoSao, dg.NhanXet, dg.NgayDanhGia, sv.HoTen
-    FROM DANHGIA dg JOIN SINHVIEN sv ON sv.MSSV = dg.MSSV
-    WHERE (@MaToa IS NULL OR dg.MaPhong IN (SELECT MaPhong FROM PHONG WHERE MaToa = @MaToa))
-    ORDER BY dg.NgayDanhGia DESC;", Db.P("@MaToa", string.IsNullOrWhiteSpace(maToa) ? null : maToa));
-            ViewBag.DsToa = Db.Query(@"SELECT MaToa, TenToa FROM TOANHA ORDER BY MaToa;");
-            return View();
-        }
-
         // ============ Danh sách + tra cứu phòng ============
         public IActionResult Phong(string? tuKhoa, string? maToa)
         {

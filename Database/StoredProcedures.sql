@@ -843,23 +843,4 @@ BEGIN
 END
 GO
 
-/* Thống kê điểm đánh giá phòng/KTX trung bình theo phòng (QL/QTV xem).
-   Chỉ trả về phòng đã có ít nhất 1 lượt đánh giá. */
-IF OBJECT_ID('sp_ThongKeDanhGia', 'P') IS NOT NULL DROP PROCEDURE sp_ThongKeDanhGia;
-GO
-CREATE PROCEDURE sp_ThongKeDanhGia
-    @MaToa VARCHAR(10) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT p.MaPhong, t.MaToa, t.TenToa,
-           COUNT(dg.MaDanhGia) AS SoLuotDanhGia,
-           CAST(AVG(CAST(dg.SoSao AS DECIMAL(3,2))) AS DECIMAL(3,2)) AS DiemTrungBinh
-    FROM PHONG p
-    JOIN TOANHA t ON t.MaToa = p.MaToa
-    JOIN DANHGIA dg ON dg.MaPhong = p.MaPhong
-    WHERE (@MaToa IS NULL OR p.MaToa = @MaToa)
-    GROUP BY p.MaPhong, t.MaToa, t.TenToa
-    ORDER BY DiemTrungBinh DESC, SoLuotDanhGia DESC;
-END
-GO
+

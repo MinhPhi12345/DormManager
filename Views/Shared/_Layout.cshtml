@@ -52,7 +52,6 @@
                         <a class="nav-item-link @Active("QuanLy", "TaoHoaDon")" asp-controller="QuanLy" asp-action="TaoHoaDon"><i class="bi bi-receipt-cutoff"></i> Lập hóa đơn</a>
                         <a class="nav-item-link @Active("QuanLy", "LichSuThongBao")" asp-controller="QuanLy" asp-action="LichSuThongBao"><i class="bi bi-bell"></i> Lịch sử thông báo</a>
                         <a class="nav-item-link @Active("QuanLy", "ViPham")" asp-controller="QuanLy" asp-action="ViPham"><i class="bi bi-exclamation-triangle"></i> Sinh viên vi phạm</a>
-                        <a class="nav-item-link @Active("QuanLy", "DanhGiaPhong")" asp-controller="QuanLy" asp-action="DanhGiaPhong"><i class="bi bi-star"></i> Đánh giá phòng/KTX</a>
                     }
                     else if (vaiTro == "QTV")
                     {
@@ -70,7 +69,6 @@
                         <a class="nav-item-link @(controller == "QuanLy" && action == "DonYeuCau" ? "active" : "")" asp-controller="QuanLy" asp-action="DonYeuCau"><i class="bi bi-inboxes"></i> Đơn phản hồi, yêu cầu</a>
                         <a class="nav-item-link @(controller == "QuanLy" && action == "DonDangKy" ? "active" : "")" asp-controller="QuanLy" asp-action="DonDangKy"><i class="bi bi-clipboard-check"></i> Đơn đăng ký KTX</a>
                         <a class="nav-item-link @(controller == "QuanLy" && action == "ViPham" ? "active" : "")" asp-controller="QuanLy" asp-action="ViPham"><i class="bi bi-exclamation-triangle"></i> Sinh viên vi phạm</a>
-                        <a class="nav-item-link @(controller == "QuanLy" && action == "DanhGiaPhong" ? "active" : "")" asp-controller="QuanLy" asp-action="DanhGiaPhong"><i class="bi bi-star"></i> Đánh giá phòng/KTX</a>
                     }
                 </nav>
 

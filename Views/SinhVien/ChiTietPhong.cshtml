@@ -76,15 +76,7 @@
                     <dt class="col-5">Tiện ích</dt>
                     <dd class="col-7">Điều hòa, tủ lạnh, máy giặt chung, wifi</dd>
                 </dl>
-                @if (ViewBag.SoLuotDanhGia != null && Convert.ToInt32(ViewBag.SoLuotDanhGia) > 0)
-                {
-                    <hr class="my-3" />
-                    <div class="small">
-                        <i class="bi bi-star-fill text-warning me-1"></i>
-                        <b>@(Convert.ToDecimal(ViewBag.DiemDanhGiaTB).ToString("0.0"))/5</b>
-                        <span class="text-muted">(@ViewBag.SoLuotDanhGia lượt đánh giá)</span>
-                    </div>
-                }
+
             </div>
         </div>
 
