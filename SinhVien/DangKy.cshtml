@@ -1,0 +1,69 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Đăng ký ở ký túc xá";
+    DataRow g = ViewBag.Giuong;
+    DataRow? dot = ViewBag.Dot as DataRow;
+}
+
+@* Đăng ký ở KTX / ưu tiên / học kỳ hè | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        .reg-box {
+            max-width: 620px;
+            margin: 0 auto;
+        }
+
+        .reg-summary {
+            background: #eef5f2;
+            border-radius: .6rem;
+            padding: 1rem 1.2rem;
+        }
+
+            .reg-summary dt {
+                color: #567;
+                font-weight: 500;
+            }
+    </style>
+}
+
+<div class="reg-box">
+    <div class="card p-4">
+        <h2 class="h5 fw-bold text-dm mb-3"><i class="bi bi-pencil-square me-2"></i>Xác nhận đăng ký giường</h2>
+
+        @if (ViewBag.Loi != null)
+        {
+            <div class="alert alert-danger">@ViewBag.Loi</div>
+            <a asp-action="TraCuuPhong" class="btn btn-outline-secondary">Quay lại tra cứu phòng</a>
+        }
+        else
+        {
+            <dl class="row reg-summary small mb-3">
+                <dt class="col-5">Giường</dt>
+                <dd class="col-7 fw-bold">@g["MaGiuong"]</dd>
+                <dt class="col-5">Phòng / Tòa</dt>
+                <dd class="col-7">@g["MaPhong"] - @g["TenToa"] (tầng @g["Tang"])</dd>
+                <dt class="col-5">Giá phòng</dt>
+                <dd class="col-7">@(Convert.ToDecimal(g["GiaPhong"]).ToString("N0"))đ/người/tháng</dd>
+                @if (dot != null)
+                {
+                    <dt class="col-5">Đợt đăng ký</dt>
+                    <dd class="col-7">@dot["TenDot"] (@dot["HocKy"])</dd>
+                    <dt class="col-5">Đóng cổng</dt>
+                    <dd class="col-7">@(Convert.ToDateTime(dot["NgayDong"]).ToString("dd/MM/yyyy HH:mm"))</dd>
+                }
+            </dl>
+
+            <div class="alert alert-info small py-2">
+                <i class="bi bi-info-circle me-1"></i>
+                Sau khi đăng ký, phiếu ở trạng thái <b>Chờ đối chiếu</b>. Bạn cần mang thẻ sinh viên đến
+                văn phòng quản lý tòa nhà để đối chiếu giấy tờ và hoàn tất nhận phòng.
+            </div>
+
+            <form method="post" asp-action="XacNhanDangKy" class="d-flex gap-2">
+                <input type="hidden" name="maGiuong" value="@g["MaGiuong"]" />
+                <a asp-action="ChiTietPhong" asp-route-id="@g["MaPhong"]" class="btn btn-outline-secondary w-50">Hủy</a>
+                <button type="submit" class="btn btn-dm w-50">Xác nhận đăng ký</button>
+            </form>
+        }
+    </div>
+</div>

@@ -1,0 +1,225 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Thông tin tổng quan";
+    DataTable phong = ViewBag.PhongDangO;
+    DataTable banCP = ViewBag.BanCungPhong;
+    DataTable hdCTT = ViewBag.HoaDonChuaTT;
+    DataTable donGD = ViewBag.DonGanDay;
+}
+
+@* Thông tin tổng quan | View phức tạp -> style External *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/views/tongquan.css" />
+    <link rel="stylesheet" href="~/css/banner.css" />
+
+    @{
+        DataTable dsDotMo = ViewBag.DsDotMo;
+        DataRow? dotPhuHop = null, dotKhongPhuHop = null;
+        if (dsDotMo != null)
+        {
+            foreach (DataRow r in dsDotMo.Rows)
+            {
+                if (Convert.ToInt32(r["PhuHop"]) == 1) { dotPhuHop = r; break; }
+                else if (dotKhongPhuHop == null) { dotKhongPhuHop = r; }
+            }
+        }
+    }
+
+    @if (dotPhuHop != null)
+    {
+        <div class="dot-banner dot-banner-mo">
+            <div class="dot-banner-icon"><i class="bi bi-calendar-check-fill"></i></div>
+            <div class="dot-banner-body">
+                <div class="dot-banner-title">
+                    Đợt đăng ký đang mở: @dotPhuHop["TenDot"]
+                    @if (dotPhuHop["LoaiDot"].ToString() == "UuTien")
+                    {
+                        <span class="badge dot-badge-uutien ms-1">Ưu tiên - dành cho bạn</span>
+                    }
+                </div>
+                <div class="dot-banner-sub">
+                    Học kỳ @dotPhuHop["HocKy"] · Hạn đăng ký: <b>@(Convert.ToDateTime(dotPhuHop["NgayDong"]).ToString("HH:mm dd/MM/yyyy"))</b>
+                </div>
+            </div>
+            <a asp-controller="SinhVien" asp-action="TraCuuPhong" class="btn btn-dm dot-banner-btn">Đăng ký ngay</a>
+        </div>
+    }
+    else if (dotKhongPhuHop != null)
+    {
+        <div class="dot-banner dot-banner-khongphuhop">
+            <div class="dot-banner-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div class="dot-banner-body">
+                <div class="dot-banner-title">Đợt đăng ký ưu tiên tân sinh viên đang mở</div>
+                <div class="dot-banner-sub">
+                    @dotKhongPhuHop["TenDot"] chỉ dành cho tân sinh viên. Vui lòng chờ đợt đại trà
+                    (sau <b>@(Convert.ToDateTime(dotKhongPhuHop["NgayDong"]).ToString("dd/MM/yyyy"))</b>).
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="dot-banner dot-banner-dong">
+            <div class="dot-banner-icon"><i class="bi bi-calendar-x"></i></div>
+            <div class="dot-banner-body">
+                <div class="dot-banner-title">Hiện chưa có đợt đăng ký nào đang mở</div>
+                <div class="dot-banner-sub">Vui lòng theo dõi thông báo từ Ban quản lý KTX để biết lịch đăng ký tiếp theo.</div>
+            </div>
+        </div>
+    }
+}
+
+@if (phong.Rows.Count > 0)
+{
+    var p = phong.Rows[0];
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="tq-stat card p-3">
+                <span class="tq-stat-icon bg-room"><i class="bi bi-door-open"></i></span>
+                <div><div class="tq-stat-value">@p["MaPhong"]</div><div class="tq-stat-label">Phòng đang ở - @p["TenToa"]</div></div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tq-stat card p-3">
+                <span class="tq-stat-icon bg-floor"><i class="bi bi-layers"></i></span>
+                <div><div class="tq-stat-value">Tầng @p["Tang"]</div><div class="tq-stat-label">Giường @p["MaGiuong"]</div></div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tq-stat card p-3">
+                <span class="tq-stat-icon bg-money"><i class="bi bi-cash-coin"></i></span>
+                <div><div class="tq-stat-value">@(Convert.ToDecimal(p["GiaPhong"]).ToString("N0"))đ</div><div class="tq-stat-label">Tiền phòng/tháng</div></div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tq-stat card p-3">
+                <span class="tq-stat-icon bg-date"><i class="bi bi-calendar-check"></i></span>
+                <div><div class="tq-stat-value">@(Convert.ToDateTime(p["NgayKetThuc"]).ToString("dd/MM/yyyy"))</div><div class="tq-stat-label">Hết hạn hợp đồng</div></div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>Bạn chưa có phòng ở KTX.
+        <a asp-action="TraCuuPhong" class="alert-link">Tra cứu và đăng ký phòng ngay</a>.
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header tq-card-header"><i class="bi bi-people me-2"></i>Danh sách sinh viên cùng phòng</div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 tq-table">
+                    <thead><tr><th>#</th><th>Tên</th><th>MSSV</th><th>Khóa</th></tr></thead>
+                    <tbody>
+                        @if (banCP.Rows.Count == 0)
+                        {
+                            <tr><td colspan="4" class="text-center text-muted py-3">Chưa có bạn cùng phòng</td></tr>
+                        }
+                        @for (int i = 0; i < banCP.Rows.Count; i++)
+                        {
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td>@banCP.Rows[i]["HoTen"]</td>
+                                <td>@banCP.Rows[i]["MSSV"]</td>
+                                <td>@banCP.Rows[i]["KhoaHoc"]</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header tq-card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-receipt me-2"></i>Hóa đơn chưa thanh toán</span>
+                <a asp-action="HoaDon" class="small text-decoration-none">Xem thêm</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 tq-table">
+                    <thead><tr><th>Tháng</th><th>Hạn TT</th><th>Số tiền</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                        @if (hdCTT.Rows.Count == 0)
+                        {
+                            <tr><td colspan="4" class="text-center text-muted py-3">Không có hóa đơn nào cần thanh toán 🎉</td></tr>
+                        }
+                        @foreach (DataRow r in hdCTT.Rows)
+                        {
+                            <tr>
+                                <td>@r["Thang"]</td>
+                                <td>@(Convert.ToDateTime(r["HanThanhToan"]).ToString("dd/MM/yyyy"))</td>
+                                <td class="fw-semibold">@(Convert.ToDecimal(r["TongTien"]).ToString("N0"))đ</td>
+                                <td>
+                                    @if (r["TrangThai"].ToString() == "QuaHan")
+                                    {
+                                        <span class="badge text-bg-danger">Quá hạn</span>
+                                    }
+                                    else
+                                    {
+
+                                        <a asp-action="ChiTietHoaDon" asp-route-id="@r["MaHD"]" class="badge text-bg-warning text-decoration-none">Chờ thanh toán</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header tq-card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-chat-left-dots me-2"></i>Báo cáo sự cố / đề xuất gần đây</span>
+                <a asp-action="TaoDon" class="btn btn-sm btn-dm"><i class="bi bi-plus-lg"></i> Yêu cầu sửa chữa</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 tq-table">
+                    <thead><tr><th>#</th><th>Nội dung</th><th>Loại</th><th>Ngày tạo</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                        @if (donGD.Rows.Count == 0)
+                        {
+                            <tr><td colspan="5" class="text-center text-muted py-3">Chưa có đơn nào</td></tr>
+                        }
+                        @for (int i = 0; i < donGD.Rows.Count; i++)
+                        {
+                            var d = donGD.Rows[i];
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td><a asp-action="ChiTietDon" asp-route-id="@d["MaDon"]" class="text-decoration-none">@d["TieuDe"]</a></td>
+                                <td>@(d["LoaiDon"].ToString() == "PhanHoi" ? "Phản hồi" : "Đề xuất")</td>
+                                <td>@(Convert.ToDateTime(d["NgayTao"]).ToString("dd/MM/yyyy"))</td>
+                                <td>
+                                    @switch (d["TrangThai"].ToString())
+                                    {
+                                        case "ChoXuLy":
+                                            <span class="badge text-bg-secondary">Chờ xử lý</span>
+                                            ; break;
+                                        case "DangXuLy":
+
+                                            <span class="badge text-bg-info">Đang xử lý</span>
+                                            ; break;
+                                        case "DaXuLy":
+
+                                            <span class="badge text-bg-success">Đã xử lý</span>
+                                            ; break;
+                                        default:
+
+                                            <span class="badge text-bg-danger">Từ chối</span>
+                                            ; break;
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
