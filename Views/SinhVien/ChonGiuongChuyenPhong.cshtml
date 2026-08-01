@@ -1,0 +1,103 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Chọn giường - Phòng " + ViewBag.PhongMoi["MaPhong"];
+    DataRow pd = ViewBag.Phieu;
+    DataRow p = ViewBag.PhongMoi;
+    DataTable dsGiuong = ViewBag.DsGiuong;
+}
+
+@* Bước 2: chọn giường trống trong phòng đã chọn - đồng bộ giao diện sơ đồ giường với Chi tiết phòng | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        .bed-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: .7rem;
+        }
+
+        .bed-item {
+            border: 2px solid #d8e2de;
+            border-radius: .6rem;
+            padding: .8rem .5rem;
+            text-align: center;
+            font-size: .85rem;
+            background: #fff;
+        }
+
+            .bed-item .bi {
+                font-size: 1.4rem;
+                display: block;
+                margin-bottom: .25rem;
+            }
+
+        .bed-trong {
+            border-color: #0d5c4d;
+        }
+
+            .bed-trong .bi {
+                color: #0d5c4d;
+            }
+
+        .bed-dasudung {
+            background: #f4f4f4;
+            color: #97a09b;
+        }
+
+        .bed-baotri {
+            border-color: #f2a516;
+        }
+
+            .bed-baotri .bi {
+                color: #f2a516;
+            }
+
+        .bed-item .btn {
+            margin-top: .4rem;
+        }
+    </style>
+}
+
+<a asp-action="ChuyenPhong" asp-route-maPhieu="@pd["MaPhieu"]" class="btn btn-outline-secondary btn-sm mb-3">
+    <i class="bi bi-arrow-left me-1"></i>Chọn phòng khác
+</a>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5 fw-bold text-dm mb-1"><i class="bi bi-door-open me-2"></i>Phòng @p["MaPhong"]</h2>
+        <div class="small text-muted">
+            @p["TenToa"] · Tầng @p["Tang"] · Phòng @p["LoaiPhong"] giường ·
+            <b class="text-dm">@(Convert.ToDecimal(p["GiaPhong"]).ToString("N0"))đ/người/tháng</b>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-white fw-semibold">Sơ đồ giường - chọn giường trống để chuyển đến</div>
+    <div class="card-body">
+        <div class="bed-grid">
+            @foreach (DataRow g in dsGiuong.Rows)
+            {
+                string tt = g["TrangThai"].ToString()!;
+                <div class="bed-item @(tt == "Trong" ? "bed-trong" : tt == "BaoTri" ? "bed-baotri" : "bed-dasudung")">
+                    <i class="bi @(tt == "Trong" ? "bi-check-circle" : tt == "BaoTri" ? "bi-tools" : "bi-person-fill")"></i>
+                    <div class="fw-semibold">@g["MaGiuong"]</div>
+                    @if (tt == "Trong")
+                    {
+                        <form method="post" asp-action="GuiDonChuyenPhong"
+                              data-confirm-title="Xác nhận gửi yêu cầu chuyển phòng"
+                              data-confirm-level="warning"
+                              data-confirm-message="Gửi yêu cầu chuyển sang phòng @p["MaPhong"] (giường @g["MaGiuong"])? Yêu cầu cần Ban quản lý xác nhận mới có hiệu lực.">
+                            <input type="hidden" name="maPhieu" value="@pd["MaPhieu"]" />
+                            <input type="hidden" name="maGiuongMoi" value="@g["MaGiuong"]" />
+                            <button type="submit" class="btn btn-sm btn-dm">Chuyển đến đây</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="text-muted">@(tt == "BaoTri" ? "Bảo trì" : "Đã có người")</div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

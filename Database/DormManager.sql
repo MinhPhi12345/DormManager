@@ -71,6 +71,17 @@ CREATE TABLE PHONG (
     SoGiuongTrong INT         NOT NULL CHECK (SoGiuongTrong >= 0)
 );
 
+/* ========================== 5b. ANHPHONG =============================
+   Ảnh minh họa của phòng (1 phòng - nhiều ảnh) - Admin (QTV) thêm/xóa,
+   sinh viên xem khi tra cứu/xem chi tiết phòng để yên tâm hơn khi đăng ký. */
+CREATE TABLE ANHPHONG (
+    MaAnh    INT IDENTITY(1,1) PRIMARY KEY,
+    MaPhong  VARCHAR(10)   NOT NULL FOREIGN KEY REFERENCES PHONG(MaPhong),
+    DuongDan NVARCHAR(255) NOT NULL,             -- đường dẫn tương đối trong wwwroot, VD /uploads/phong/A1-101/xxx.jpg
+    ThuTu    INT           NOT NULL DEFAULT 0,   -- thứ tự hiển thị, ảnh đầu tiên = ảnh đại diện
+    NgayTao  DATETIME      NOT NULL DEFAULT GETDATE()
+);
+
 /* ============================ 6. GIUONG ============================= */
 CREATE TABLE GIUONG (
     MaGiuong  VARCHAR(15) PRIMARY KEY,                 -- VD 'A1-201-G1'
@@ -151,8 +162,9 @@ CREATE TABLE DONGIA (
 /* ============================ 12. HOADON ==============================
    Hóa đơn điện/nước/tiền phòng - lập CHUNG theo phòng mỗi tháng, chia sẻ
    cho cả phòng (ai trả trước thì hóa đơn đóng cho cả phòng). TienPhong =
-   GiaPhong × số người đã ở TRỌN VẸN từ đầu tháng đó (SV mới dọn vào giữa
-   tháng chưa tính vào tháng này, bắt đầu tính từ tháng kế tiếp). */
+   GiaPhong × số người dọn vào từ ngày TS12 của tháng đó trở về trước
+   (SV dọn vào SAU ngày TS12 được miễn tiền phòng tháng này, tính từ
+   tháng kế tiếp - tránh tính đủ 1 tháng tiền phòng cho SV mới ở vài ngày). */
 CREATE TABLE HOADON (
     MaHD         INT IDENTITY(1,1) PRIMARY KEY,
     MaPhong      VARCHAR(10)   NOT NULL FOREIGN KEY REFERENCES PHONG(MaPhong),
@@ -231,6 +243,13 @@ GO
    ===================================================================== */
 DECLARE @mk VARCHAR(255) = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
 
+-- Ngày mẫu cho các hợp đồng "Đang ở" - tính TƯƠNG ĐỐI theo GETDATE() (thay vì ghi cứng ngày cụ thể)
+-- để hợp đồng luôn hợp lệ và đủ điều kiện demo "Đăng ký chuyển phòng" (TS11 = 15 ngày tối thiểu),
+-- bất kể script này được chạy vào thời điểm nào.
+DECLARE @NgayDangKyMau DATE = DATEADD(DAY, -35, CAST(GETDATE() AS DATE));
+DECLARE @NgayBatDauMau DATE = DATEADD(DAY, -30, CAST(GETDATE() AS DATE));   -- đã ở > 15 ngày (TS11)
+DECLARE @NgayKetThucMau DATE = DATEADD(MONTH, 5, @NgayBatDauMau);          -- hợp đồng 5 tháng (TS2)
+
 -- Tham số hệ thống ( )
 INSERT INTO THAMSO (MaThamSo, GiaTri, GhiChu) VALUES
 ('TS1','14',N'Số ngày của đợt đăng ký ưu tiên Tân sinh viên'),
@@ -243,7 +262,8 @@ INSERT INTO THAMSO (MaThamSo, GiaTri, GhiChu) VALUES
 ('TS8','25000',N'Đơn giá nước trần theo quy định pháp luật (VNĐ/m³)'),
 ('TS9','6-8', N'Loại phòng tiêu chuẩn dành cho sinh viên diện chính sách'),
 ('TS10','2', N'Số tháng của đợt lưu trú Học kỳ hè'),
-('TS11','15',N'Số ngày tối thiểu phải ở tại phòng hiện tại trước khi được đăng ký chuyển phòng');
+('TS11','15',N'Số ngày tối thiểu phải ở tại phòng hiện tại trước khi được đăng ký chuyển phòng'),
+('TS12','10',N'Ngày cuối trong tháng còn tính tiền phòng nếu dọn vào - dọn vào từ ngày này trở về trước vẫn tính tiền phòng tháng đó, dọn vào sau ngày này được miễn, tính từ tháng kế tiếp');
 
 -- Tài khoản
 INSERT INTO TAIKHOAN (TenDangNhap, MatKhau, Email, SDT, VaiTro) VALUES
@@ -268,8 +288,8 @@ INSERT INTO QUANLY (MaNV, MaTK, HoTen, MaToa) VALUES
 
 -- Sinh viên
 INSERT INTO SINHVIEN (MSSV, MaTK, HoTen, NgaySinh, GioiTinh, KhoaHoc, DoiTuong) VALUES
-('24DH113343', 4, N'Võ Quốc Dũng',    '2006-05-30', 'Nam', 'K2024', 'BinhThuong'),
-('25DH113344', 5, N'Đặng Hoàng Minh', '2007-01-10', 'Nam', 'K2025', 'BinhThuong'),
+('24DH113343', 4, N'Đặng Hoàng Minh Phi',    '2006-04-07', 'Nam', 'K2024', 'BinhThuong'),
+('25DH113344', 5, N'Võ Quốc Dũng', '2007-01-10', 'Nam', 'K2025', 'BinhThuong'),
 ('25DH113345', 6, N'Trần Thu Cúc',    '2007-11-05', 'Nu',  'K2025', 'BinhThuong'),
 ('26DH113346', 7, N'Nguyễn Văn An',   '2008-03-15', 'Nam', 'K2026', 'BinhThuong'),
 ('26DH113347', 8, N'Phạm Thị Bình',   '2008-07-22', 'Nu',  'K2026', 'ChinhSach');
@@ -301,11 +321,14 @@ INSERT INTO DOTDANGKY (TenDot, LoaiDot, HocKy, NgayMo, NgayDong, TrangThai) VALU
 (N'Học kỳ hè 2026',                 'KyHe',   'HKHe-2026','2026-05-15', '2026-06-01', 'DaDong');
 
 -- Phiếu đăng ký / hợp đồng
+-- 3 hợp đồng "Đang ở" dùng ngày TƯƠNG ĐỐI (@NgayBatDauMau...) để luôn đủ điều kiện demo
+-- "Đăng ký chuyển phòng" (trước đây ghi cứng NgayBatDau ở TƯƠNG LAI khiến số ngày đã ở
+-- tính ra bị âm, luôn bị chặn bởi kiểm tra TS11 "ở tối thiểu 15 ngày").
 INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetThuc, TrangThai) VALUES
-('25DH113344', 'A1-201-G1', 2, '2026-07-06', '2026-08-15', '2027-01-15', 'DangO'),
-('25DH113345', 'A1-201-G2', 2, '2026-07-06', '2026-08-15', '2027-01-15', 'DangO'),
-('24DH113343', 'B1-101-G1', 2, '2026-07-07', '2026-08-15', '2027-01-15', 'DangO'),
-('26DH113346', 'A1-202-G1', 2, GETDATE(),    '2026-08-15', '2027-01-15', 'ChoDoiChieu');
+('25DH113344', 'A1-201-G1', 2, @NgayDangKyMau, @NgayBatDauMau, @NgayKetThucMau, 'DangO'),
+('25DH113345', 'A1-201-G2', 2, @NgayDangKyMau, @NgayBatDauMau, @NgayKetThucMau, 'DangO'),
+('24DH113343', 'B1-101-G1', 2, @NgayDangKyMau, @NgayBatDauMau, @NgayKetThucMau, 'DangO'),
+('26DH113346', 'A1-202-G1', 2, GETDATE(),      '2026-08-15',   '2027-01-15',    'ChoDoiChieu');
 
 -- Giữ chỗ cho phiếu ChoDoiChieu
 UPDATE GIUONG SET TrangThai='DaSuDung' WHERE MaGiuong='A1-202-G1';

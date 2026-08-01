@@ -84,6 +84,9 @@
                             }
                         </td>
                         <td class="text-end">
+                            <a asp-action="AnhPhong" asp-route-maPhong="@r["MaPhong"]" class="btn btn-sm btn-outline-primary" title="Quản lý ảnh phòng">
+                                <i class="bi bi-images"></i>
+                            </a>
                             <button type="button" class="btn btn-sm btn-outline-success"
                                     data-bs-toggle="modal" data-bs-target="#modalSua"
                                     data-phong="@r["MaPhong"]" data-gia="@Convert.ToDecimal(r["GiaPhong"])" data-tt="@r["TrangThai"]">

@@ -69,5 +69,8 @@ namespace DormManager.Data
         public static void XacNhanChuyenPhong(int maDon, string? maNV)
             => Db.ExecProc("sp_XacNhanChuyenPhong", Db.P("@MaDon", maDon), Db.P("@MaNV", maNV));
 
+        /// <summary>sp_BaoCaoCongNo: chi tiết công nợ từng sinh viên (tổng nợ, số ngày trễ nhất).</summary>
+        public static DataTable BaoCaoCongNo() => Db.QueryProc("sp_BaoCaoCongNo");
+
     }
 }

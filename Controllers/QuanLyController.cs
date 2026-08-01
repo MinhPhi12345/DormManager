@@ -235,9 +235,10 @@ namespace DormManager.Controllers
                 decimal tienDien = Math.Round(Convert.ToDecimal(r["Kwh"]) * Convert.ToDecimal(dg["GiaDien"]));
                 decimal tienNuoc = Math.Round(Convert.ToDecimal(r["M3"]) * Convert.ToDecimal(dg["GiaNuoc"]));
                 decimal phiDV = Convert.ToDecimal(dg["PhiDichVu"]);
-                // Tiền phòng = giá phòng x số người đã ở TRỌN VẸN từ đầu tháng (SoNguoiO đã được
-                // sp_NguonTaoHoaDon tính sẵn theo NgayBatDau <= đầu tháng - SV mới dọn vào giữa
-                // tháng chưa được tính, bắt đầu tính từ tháng kế tiếp).
+                // Tiền phòng = giá phòng x số người dọn vào từ ngày TS12 của tháng trở về trước
+                // (SoNguoiO đã được sp_NguonTaoHoaDon tính sẵn theo NgayBatDau <= ngày TS12 - SV
+                // dọn vào SAU ngày TS12 chưa được tính, bắt đầu tính từ tháng kế tiếp, tránh bị
+                // tính đủ 1 tháng tiền phòng khi chỉ mới ở vài ngày cuối tháng).
                 decimal tienPhong = Convert.ToDecimal(r["GiaPhong"]) * Convert.ToInt32(r["SoNguoiO"]) + phiDV;
                 decimal tongTien = tienPhong + tienDien + tienNuoc;
 
@@ -352,6 +353,38 @@ namespace DormManager.Controllers
 
             TempData["ThanhCong"] = $"Đã xác nhận thu {dsNo.Rows.Count} hóa đơn quá hạn và mở khóa tài khoản (nếu đang bị khóa).";
             return RedirectToAction("ViPham");
+        }
+
+        // ============ Danh sách + tra cứu hóa đơn toàn hệ thống ============
+        public IActionResult HoaDon(string? tuKhoa, string? thang, string? trangThai)
+        {
+            ViewBag.DsHoaDon = Db.Query(@"SELECT h.MaHD, h.MaPhong, h.Thang, h.TienPhong, h.TienDien, h.TienNuoc,
+           h.TongTien, h.NgayPhatHanh, h.HanThanhToan, h.TrangThai, t.TenToa
+    FROM HOADON h
+    JOIN PHONG p ON p.MaPhong = h.MaPhong
+    JOIN TOANHA t ON t.MaToa = p.MaToa
+    WHERE h.TrangThai <> 'Nhap'
+      AND (@TuKhoa IS NULL OR h.MaPhong LIKE '%' + @TuKhoa + '%' OR t.TenToa LIKE '%' + @TuKhoa + '%')
+      AND (@Thang IS NULL OR h.Thang = @Thang)
+      AND (@TrangThai IS NULL OR h.TrangThai = @TrangThai)
+    ORDER BY h.MaHD DESC;",
+                Db.P("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? null : tuKhoa.Trim()),
+                Db.P("@Thang", string.IsNullOrWhiteSpace(thang) ? null : thang),
+                Db.P("@TrangThai", string.IsNullOrWhiteSpace(trangThai) ? null : trangThai));
+            return View();
+        }
+
+        // ============ Báo cáo công nợ sinh viên ============
+        public IActionResult BaoCaoCongNo()
+        {
+            var ds = QuanLyRepo.BaoCaoCongNo();   // sp_BaoCaoCongNo
+            ViewBag.DsCongNo = ds;
+
+            decimal tongNo = 0;
+            foreach (System.Data.DataRow r in ds.Rows) tongNo += Convert.ToDecimal(r["TongNo"]);
+            ViewBag.TongNoHeThong = tongNo;
+            ViewBag.SoSVNo = ds.Rows.Count;
+            return View();
         }
     }
 }

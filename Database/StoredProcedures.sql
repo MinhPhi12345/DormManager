@@ -222,6 +222,9 @@ END
 GO
 
 --: khóa tài khoản khi hóa đơn quá hạn >= TS3 ngày
+-- CHỈ áp dụng cho SV đã ở phòng đó từ trước hoặc trong tháng phát sinh hóa đơn (NgayBatDau <=
+-- ngày cuối tháng của hóa đơn h.Thang) - tránh khóa oan SV mới dọn vào phòng SAU khi hóa đơn
+-- (nợ điện/nước của bạn cùng phòng cũ) đã phát sinh, vì họ không liên quan tới khoản nợ đó.
 IF OBJECT_ID('sp_KhoaTaiKhoanQuaHan', 'P') IS NOT NULL DROP PROCEDURE sp_KhoaTaiKhoanQuaHan;
 GO
 CREATE PROCEDURE sp_KhoaTaiKhoanQuaHan
@@ -237,12 +240,16 @@ BEGIN
     JOIN HOADON h ON h.MaPhong = g.MaPhong
     WHERE h.TrangThai = 'QuaHan'
       AND DATEDIFF(DAY, h.HanThanhToan, GETDATE()) >= @TS3
-      AND tk.TrangThai = 'HoatDong';
+      AND tk.TrangThai = 'HoatDong'
+      AND pd.NgayBatDau <= EOMONTH(DATEFROMPARTS(CAST(RIGHT(h.Thang, 4) AS INT), CAST(LEFT(h.Thang, CHARINDEX('/', h.Thang) - 1) AS INT), 1));
 END
 GO
 
 --: ghi nhận vi phạm khi quá hạn > TS4 ngày - CHẾ TÀI LŨY TIẾN (QD06): điểm phạt lần thứ N = TS6 x N,
 -- tức vi phạm càng nhiều lần thì điểm phạt cho lần mới càng nặng hơn (không còn cộng cố định TS6/lần).
+-- CHỈ áp dụng cho SV đã ở phòng đó từ trước hoặc trong tháng phát sinh hóa đơn (cùng lý do như
+-- sp_KhoaTaiKhoanQuaHan ở trên) - SV mới dọn vào sau khi hóa đơn phát sinh không bị ghi vi phạm
+-- vì khoản nợ điện/nước đó không phải do họ gây ra.
 IF OBJECT_ID('sp_GhiNhanViPham', 'P') IS NOT NULL DROP PROCEDURE sp_GhiNhanViPham;
 GO
 CREATE PROCEDURE sp_GhiNhanViPham
@@ -262,6 +269,7 @@ BEGIN
         WHERE h.TrangThai = 'QuaHan'
           AND DATEDIFF(DAY, h.HanThanhToan, GETDATE()) > @TS4
           AND NOT EXISTS (SELECT 1 FROM VIPHAM v WHERE v.MaHD = h.MaHD AND v.MSSV = sv.MSSV)
+          AND pd.NgayBatDau <= EOMONTH(DATEFROMPARTS(CAST(RIGHT(h.Thang, 4) AS INT), CAST(LEFT(h.Thang, CHARINDEX('/', h.Thang) - 1) AS INT), 1))
     )
     INSERT INTO VIPHAM (MSSV, MaHD, SoDiem, LyDo)
     SELECT MSSV, MaHD, @TS6 * LanThu,
@@ -537,16 +545,21 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @Nam INT = CAST(RIGHT(@Thang, 4) AS INT);
     DECLARE @ThangSo INT = CAST(LEFT(@Thang, CHARINDEX('/', @Thang) - 1) AS INT);
-    DECLARE @DauThang DATE = DATEFROMPARTS(@Nam, @ThangSo, 1);
 
-    -- SoNguoiO chỉ đếm SV đã ở TRỌN VẸN từ đầu tháng đó (dọn vào từ trước hoặc
-    -- đúng ngày đầu tháng). SV mới dọn vào giữa/cuối tháng chưa tính vào tháng
-    -- này, bắt đầu tính từ tháng kế tiếp (đợt lập hóa đơn đầu mỗi tháng).
+    -- TS12: ngày cuối trong tháng còn tính tiền phòng nếu dọn vào (mặc định 10).
+    -- Dọn vào từ ngày TS12 trở về trước -> vẫn tính tiền phòng tháng này.
+    -- Dọn vào SAU ngày TS12 -> miễn tiền phòng tháng này, tính từ tháng kế tiếp
+    -- (tránh tính đủ 1 tháng tiền phòng cho SV chỉ mới ở vài ngày cuối tháng).
+    DECLARE @TS12 INT;
+    SELECT @TS12 = CAST(GiaTri AS INT) FROM THAMSO WHERE MaThamSo = 'TS12';
+    IF @TS12 IS NULL SET @TS12 = 10;
+    DECLARE @NguongNgay DATE = DATEFROMPARTS(@Nam, @ThangSo, @TS12);
+
     SELECT cs.MaChiSo, cs.MaPhong, cs.DienDauKy, cs.DienCuoiKy, cs.NuocDauKy, cs.NuocCuoiKy,
            cs.DienCuoiKy - cs.DienDauKy AS Kwh, cs.NuocCuoiKy - cs.NuocDauKy AS M3,
            p.GiaPhong,
            (SELECT COUNT(*) FROM PHIEUDANGKY pd JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
-            WHERE g.MaPhong = p.MaPhong AND pd.TrangThai = 'DangO' AND pd.NgayBatDau <= @DauThang) AS SoNguoiO
+            WHERE g.MaPhong = p.MaPhong AND pd.TrangThai = 'DangO' AND pd.NgayBatDau <= @NguongNgay) AS SoNguoiO
     FROM CHISODIENNUOC cs
     JOIN PHONG p ON p.MaPhong = cs.MaPhong
     WHERE cs.Thang = @Thang AND cs.TrangThai = 'Nhap'
@@ -664,6 +677,7 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRANSACTION;
     BEGIN TRY
+        DELETE FROM ANHPHONG WHERE MaPhong = @MaPhong;
         DELETE FROM GIUONG WHERE MaPhong = @MaPhong;
         DELETE FROM PHONG WHERE MaPhong = @MaPhong;
         COMMIT TRANSACTION;
