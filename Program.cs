@@ -15,6 +15,9 @@ var app = builder.Build();
 // Khởi tạo chuỗi kết nối cho lớp truy cập dữ liệu
 Db.Init(app.Configuration.GetConnectionString("DormManager")!);
 
+// Khởi tạo cấu hình tài khoản ngân hàng để sinh mã QR chuyển khoản (VietQR)
+CauHinhThanhToan.Init(app.Configuration);
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/TaiKhoan/DangNhap");

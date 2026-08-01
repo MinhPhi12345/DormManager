@@ -1,0 +1,86 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Hóa đơn hệ thống";
+    DataTable ds = ViewBag.DsHoaDon;
+    var q = Context.Request.Query;
+}
+
+@* Danh sách + tra cứu hóa đơn toàn hệ thống (QL) | View phức tạp -> style Inline *@
+@section Styles {
+    <style>
+        .hht-table thead th { font-size: .78rem; text-transform: uppercase; color: #7a8580; background: #fafbfa; }
+    </style>
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label small mb-1">Tra cứu</label>
+                <input type="text" name="tuKhoa" value="@q["tuKhoa"]" class="form-control" placeholder="Mã phòng / tòa nhà..." />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Tháng (MM/yyyy)</label>
+                <input type="text" name="thang" value="@q["thang"]" class="form-control" placeholder="VD: 06/2026" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Trạng thái</label>
+                <select name="trangThai" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="ChoThanhToan" selected="@(q["trangThai"] == "ChoThanhToan")">Chờ thanh toán</option>
+                    <option value="QuaHan" selected="@(q["trangThai"] == "QuaHan")">Quá hạn</option>
+                    <option value="DaThanhToan" selected="@(q["trangThai"] == "DaThanhToan")">Đã thanh toán</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <button class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Tra cứu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 hht-table">
+            <thead>
+                <tr><th>Mã HD</th><th>Phòng / Tòa</th><th>Tháng</th><th class="text-end">Tiền phòng</th><th class="text-end">Tiền điện</th><th class="text-end">Tiền nước</th><th class="text-end">Tổng tiền</th><th>Hạn TT</th><th>Trạng thái</th></tr>
+            </thead>
+            <tbody>
+                @if (ds.Rows.Count == 0)
+                {
+                    <tr><td colspan="9" class="text-center text-muted py-4">Không có hóa đơn nào phù hợp.</td></tr>
+                }
+                @foreach (DataRow h in ds.Rows)
+                {
+                    string tt = h["TrangThai"].ToString()!;
+                    <tr>
+                        <td class="fw-semibold">#@h["MaHD"]</td>
+                        <td>@h["MaPhong"] <span class="text-muted small">· @h["TenToa"]</span></td>
+                        <td>@h["Thang"]</td>
+                        <td class="text-end">@(Convert.ToDecimal(h["TienPhong"]).ToString("N0"))đ</td>
+                        <td class="text-end">@(Convert.ToDecimal(h["TienDien"]).ToString("N0"))đ</td>
+                        <td class="text-end">@(Convert.ToDecimal(h["TienNuoc"]).ToString("N0"))đ</td>
+                        <td class="text-end fw-semibold">@(Convert.ToDecimal(h["TongTien"]).ToString("N0"))đ</td>
+                        <td>@(Convert.ToDateTime(h["HanThanhToan"]).ToString("dd/MM/yyyy"))</td>
+                        <td>
+                            @switch (tt)
+                            {
+                                case "ChoThanhToan":
+                                    <span class="badge text-bg-warning">Chờ thanh toán</span>
+                                    ; break;
+                                case "QuaHan":
+
+                                    <span class="badge text-bg-danger">Quá hạn</span>
+                                    ; break;
+                                default:
+
+                                    <span class="badge text-bg-success">Đã thanh toán</span>
+                                    ; break;
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

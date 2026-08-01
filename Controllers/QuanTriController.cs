@@ -1,8 +1,10 @@
 using DormManager.Data;
 using DormManager.Helpers;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace DormManager.Controllers
 {
@@ -99,35 +101,9 @@ namespace DormManager.Controllers
             return View();
         }
 
-        // ============ Lưu ảnh phòng lên wwwroot/uploads/phong, trả về đường dẫn tương đối (hoặc null nếu không có ảnh) ============
-        private string? LuuAnhPhong(IFormFile? anhPhong, string maPhong)
-        {
-            if (anhPhong == null || anhPhong.Length == 0) return null;
-
-            var duoiHopLe = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-            var duoi = Path.GetExtension(anhPhong.FileName).ToLowerInvariant();
-            if (!duoiHopLe.Contains(duoi))
-            {
-                TempData["Loi"] = "Ảnh phòng chỉ chấp nhận định dạng JPG, PNG hoặc WEBP.";
-                return null;
-            }
-
-            var thuMuc = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "phong");
-            Directory.CreateDirectory(thuMuc);
-
-            // Đặt tên file theo mã phòng + timestamp để tránh cache ảnh cũ trên trình duyệt
-            var tenFile = $"{maPhong}_{DateTime.Now.Ticks}{duoi}";
-            var duongDanVatLy = Path.Combine(thuMuc, tenFile);
-
-            using (var fs = new FileStream(duongDanVatLy, FileMode.Create))
-                anhPhong.CopyTo(fs);
-
-            return $"/uploads/phong/{tenFile}";
-        }
-
         // ============ Thêm phòng mới ============
         [HttpPost]
-        public IActionResult ThemPhong(string maToa, int tang, string loaiPhong, decimal giaPhong, IFormFile? anhPhong)
+        public IActionResult ThemPhong(string maToa, int tang, string loaiPhong, decimal giaPhong)
         {
             int soGiuong = int.Parse(loaiPhong);
             var toa = Db.Query(@"SELECT SoTang FROM TOANHA WHERE MaToa = @MaToa;", Db.P("@MaToa", maToa));
@@ -143,13 +119,10 @@ namespace DormManager.Controllers
             do { maPhong = $"{maToa}-{tang}{stt:D2}"; stt++; }
             while (Convert.ToInt32(Db.Scalar(@"SELECT COUNT(*) FROM PHONG WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong))) > 0);
 
-            string? duongDanAnh = LuuAnhPhong(anhPhong, maPhong);
-
-            Db.Exec(@"INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong, AnhPhong)
-    VALUES (@MaPhong, @MaToa, @Tang, @LoaiPhong, @SoGiuong, @GiaPhong, 'HoatDong', @SoGiuong, @AnhPhong);",
+            Db.Exec(@"INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong)
+    VALUES (@MaPhong, @MaToa, @Tang, @LoaiPhong, @SoGiuong, @GiaPhong, 'HoatDong', @SoGiuong);",
                 Db.P("@MaPhong", maPhong), Db.P("@MaToa", maToa), Db.P("@Tang", tang),
-                Db.P("@LoaiPhong", loaiPhong), Db.P("@SoGiuong", soGiuong), Db.P("@GiaPhong", giaPhong),
-                Db.P("@AnhPhong", duongDanAnh));
+                Db.P("@LoaiPhong", loaiPhong), Db.P("@SoGiuong", soGiuong), Db.P("@GiaPhong", giaPhong));
 
             for (int i = 1; i <= soGiuong; i++)
                 Db.Exec(@"INSERT INTO GIUONG (MaGiuong, MaPhong) VALUES (@MaGiuong, @MaPhong);", Db.P("@MaGiuong", $"{maPhong}-G{i}"), Db.P("@MaPhong", maPhong));
@@ -161,16 +134,10 @@ namespace DormManager.Controllers
 
         // ============ Cập nhật phòng ============
         [HttpPost]
-        public IActionResult CapNhatPhong(string maPhong, decimal giaPhong, string trangThai, IFormFile? anhPhong)
+        public IActionResult CapNhatPhong(string maPhong, decimal giaPhong, string trangThai)
         {
-            string? duongDanAnh = LuuAnhPhong(anhPhong, maPhong);
-
-            if (duongDanAnh != null)
-                Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai, AnhPhong = @AnhPhong WHERE MaPhong = @MaPhong;",
-                    Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai), Db.P("@AnhPhong", duongDanAnh));
-            else
-                Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai WHERE MaPhong = @MaPhong;",
-                    Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai));
+            Db.Exec(@"UPDATE PHONG SET GiaPhong = @GiaPhong, TrangThai = @TrangThai WHERE MaPhong = @MaPhong;",
+                Db.P("@MaPhong", maPhong), Db.P("@GiaPhong", giaPhong), Db.P("@TrangThai", trangThai));
 
             GhiNhatKy("Sua", "Phòng", $"Cập nhật phòng {maPhong}: giá {giaPhong:N0}đ, trạng thái {trangThai}.");
             TempData["ThanhCong"] = $"Đã cập nhật phòng {maPhong}.";
@@ -204,10 +171,107 @@ namespace DormManager.Controllers
                 return RedirectToAction("Phong");
             }
 
-            QuanTriRepo.XoaPhong(maPhong);   // sp_XoaPhong (transaction xóa giường + phòng)
+            // Xóa file ảnh vật lý trước khi xóa dữ liệu (sp_XoaPhong sẽ xóa các dòng ANHPHONG)
+            var dsAnhXoa = Db.Query(@"SELECT DuongDan FROM ANHPHONG WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong));
+            foreach (System.Data.DataRow a in dsAnhXoa.Rows)
+                XoaFileAnh(a["DuongDan"].ToString());
+
+            QuanTriRepo.XoaPhong(maPhong);   // sp_XoaPhong (transaction xóa ảnh + giường + phòng)
             GhiNhatKy("Xoa", "Phòng", $"Xóa phòng {maPhong}.");
             TempData["ThanhCong"] = $"Đã xóa phòng {maPhong}.";
             return RedirectToAction("Phong");
+        }
+
+        // ============ Quản lý ảnh phòng (admin thêm nhiều ảnh, sinh viên xem khi tra cứu/đăng ký) ============
+        private static readonly string[] DinhDangAnhChoPhep = { ".jpg", ".jpeg", ".png", ".webp" };
+        private const long DungLuongAnhToiDa = 5 * 1024 * 1024; // 5MB/ảnh
+
+        public IActionResult AnhPhong(string maPhong)
+        {
+            var phong = Db.Query(@"SELECT p.*, t.TenToa FROM PHONG p JOIN TOANHA t ON t.MaToa = p.MaToa WHERE p.MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong));
+            if (phong.Rows.Count == 0)
+            {
+                TempData["Loi"] = "Phòng không tồn tại.";
+                return RedirectToAction("Phong");
+            }
+            ViewBag.Phong = phong.Rows[0];
+            ViewBag.DsAnh = Db.Query(@"SELECT MaAnh, DuongDan, ThuTu FROM ANHPHONG WHERE MaPhong = @MaPhong ORDER BY ThuTu, MaAnh;", Db.P("@MaPhong", maPhong));
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ThemAnhPhong(string maPhong, List<IFormFile> anhPhong)
+        {
+            var phong = Db.Scalar(@"SELECT COUNT(*) FROM PHONG WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong));
+            if (Convert.ToInt32(phong) == 0) { TempData["Loi"] = "Phòng không tồn tại."; return RedirectToAction("Phong"); }
+
+            if (anhPhong == null || anhPhong.Count == 0)
+            {
+                TempData["Loi"] = "Vui lòng chọn ít nhất 1 ảnh.";
+                return RedirectToAction("AnhPhong", new { maPhong });
+            }
+
+            string thuMucVatLy = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "phong", maPhong);
+            Directory.CreateDirectory(thuMucVatLy);
+
+            int thuTu = Convert.ToInt32(Db.Scalar(@"SELECT ISNULL(MAX(ThuTu), -1) + 1 FROM ANHPHONG WHERE MaPhong = @MaPhong;", Db.P("@MaPhong", maPhong)));
+            int soLuongLuu = 0, soLuongLoi = 0;
+            foreach (var file in anhPhong)
+            {
+                if (file.Length == 0) continue;
+                string duoi = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (!DinhDangAnhChoPhep.Contains(duoi) || file.Length > DungLuongAnhToiDa)
+                {
+                    soLuongLoi++;
+                    continue;
+                }
+
+                string tenFile = $"{maPhong}_{DateTime.Now.Ticks}_{soLuongLuu}{duoi}";
+                string duongDanVatLy = Path.Combine(thuMucVatLy, tenFile);
+                using (var stream = new FileStream(duongDanVatLy, FileMode.Create))
+                    await file.CopyToAsync(stream);
+
+                string duongDanLuu = $"/uploads/phong/{maPhong}/{tenFile}";
+                Db.Exec(@"INSERT INTO ANHPHONG (MaPhong, DuongDan, ThuTu) VALUES (@MaPhong, @DuongDan, @ThuTu);",
+                    Db.P("@MaPhong", maPhong), Db.P("@DuongDan", duongDanLuu), Db.P("@ThuTu", thuTu));
+                thuTu++;
+                soLuongLuu++;
+            }
+
+            if (soLuongLuu == 0)
+            {
+                TempData["Loi"] = "Không có ảnh hợp lệ nào được tải lên (chỉ nhận JPG/PNG/WEBP, tối đa 5MB/ảnh).";
+            }
+            else
+            {
+                GhiNhatKy("Them", "Ảnh phòng", $"Thêm {soLuongLuu} ảnh cho phòng {maPhong}.");
+                TempData["ThanhCong"] = $"Đã thêm {soLuongLuu} ảnh cho phòng {maPhong}."
+                    + (soLuongLoi > 0 ? $" ({soLuongLoi} file bị bỏ qua do sai định dạng hoặc quá 5MB.)" : "");
+            }
+            return RedirectToAction("AnhPhong", new { maPhong });
+        }
+
+        [HttpPost]
+        public IActionResult XoaAnhPhong(int maAnh, string maPhong)
+        {
+            var dt = Db.Query(@"SELECT DuongDan FROM ANHPHONG WHERE MaAnh = @MaAnh AND MaPhong = @MaPhong;", Db.P("@MaAnh", maAnh), Db.P("@MaPhong", maPhong));
+            if (dt.Rows.Count > 0)
+            {
+                XoaFileAnh(dt.Rows[0]["DuongDan"].ToString());
+                Db.Exec(@"DELETE FROM ANHPHONG WHERE MaAnh = @MaAnh;", Db.P("@MaAnh", maAnh));
+                GhiNhatKy("Xoa", "Ảnh phòng", $"Xóa 1 ảnh của phòng {maPhong}.");
+                TempData["ThanhCong"] = "Đã xóa ảnh.";
+            }
+            return RedirectToAction("AnhPhong", new { maPhong });
+        }
+
+        /// <summary>Xóa file ảnh vật lý trong wwwroot theo đường dẫn lưu trong DB (an toàn nếu file không tồn tại).</summary>
+        private static void XoaFileAnh(string? duongDan)
+        {
+            if (string.IsNullOrWhiteSpace(duongDan)) return;
+            string duongDanVatLy = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot",
+                duongDan.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            if (System.IO.File.Exists(duongDanVatLy)) System.IO.File.Delete(duongDanVatLy);
         }
 
         // ============ Cập nhật đơn giá điện/nước ============
@@ -386,19 +450,6 @@ namespace DormManager.Controllers
             GhiNhatKy("Xoa", "Tài khoản", $"Xóa tài khoản #{maTK}.");
             TempData["ThanhCong"] = "Đã xóa tài khoản.";
             return RedirectToAction("TaiKhoan");
-        }
-
-        // ============ Báo cáo công nợ sinh viên ============
-        public IActionResult BaoCaoCongNo()
-        {
-            var ds = QuanTriRepo.BaoCaoCongNo();   // sp_BaoCaoCongNo
-            ViewBag.DsCongNo = ds;
-
-            decimal tongNo = 0;
-            foreach (System.Data.DataRow r in ds.Rows) tongNo += Convert.ToDecimal(r["TongNo"]);
-            ViewBag.TongNoHeThong = tongNo;
-            ViewBag.SoSVNo = ds.Rows.Count;
-            return View();
         }
 
         // ============ Nhật ký thao tác hệ thống (audit log) ============

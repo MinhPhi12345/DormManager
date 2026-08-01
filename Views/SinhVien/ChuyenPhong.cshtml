@@ -2,23 +2,19 @@
 @{
     ViewData["Title"] = "Đăng ký chuyển phòng";
     DataRow pd = ViewBag.Phieu;
-    DataTable ds = ViewBag.DsGiuong;
+    DataTable dsPhong = ViewBag.DsPhong;
+    DataTable dsToa = ViewBag.DsToa;
+    var q = Context.Request.Query;
 }
 
-@* Chọn giường muốn chuyển đến | View đơn giản -> style Inline *@
+@* Bước 1: chọn phòng - lưới phòng giống Tra cứu phòng | View phức tạp -> style External + ít inline *@
 @section Styles {
+    <link rel="stylesheet" href="~/css/views/tracuuphong.css" />
     <style>
         .cp-current {
             background: #eef5f2;
             border-radius: .6rem;
             padding: .9rem 1.2rem;
-        }
-
-        .cp-table thead th {
-            font-size: .78rem;
-            text-transform: uppercase;
-            color: #7a8580;
-            background: #fafbfa;
         }
     </style>
 }
@@ -26,44 +22,87 @@
 <div class="cp-current small mb-3">
     <i class="bi bi-house-door me-1 text-dm"></i>
     Đang ở phòng <b>@pd["MaPhong"]</b> - Loại phòng @pd["LoaiPhong"] giường.
-    Chọn một giường trống ở phòng khác bên dưới để gửi yêu cầu chuyển phòng tới Ban quản lý.
+    Chọn một phòng khác bên dưới, ở bước sau bạn sẽ chọn giường trống cụ thể trong phòng đó.
 </div>
 
-<div class="card">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 cp-table">
-            <thead>
-                <tr><th>Tòa</th><th>Phòng</th><th>Tầng</th><th>Loại phòng</th><th>Giá</th><th>Giường</th><th></th></tr>
-            </thead>
-            <tbody>
-                @if (ds.Rows.Count == 0)
-                {
-                    <tr><td colspan="7" class="text-center text-muted py-4">Hiện không có giường trống phù hợp để chuyển đến.</td></tr>
-                }
-                @foreach (DataRow g in ds.Rows)
-                {
-                    <tr>
-                        <td>@g["TenToa"]</td>
-                        <td class="fw-semibold">@g["MaPhong"]</td>
-                        <td>@g["Tang"]</td>
-                        <td>@g["LoaiPhong"] giường</td>
-                        <td>@(Convert.ToDecimal(g["GiaPhong"]).ToString("N0"))đ/tháng</td>
-                        <td>@g["MaGiuong"]</td>
-                        <td>
-                            <form method="post" asp-action="GuiDonChuyenPhong"
-                                  data-confirm-title="Xác nhận gửi yêu cầu chuyển phòng"
-                                  data-confirm-level="warning"
-                                  data-confirm-message="Gửi yêu cầu chuyển sang phòng @g["MaPhong"] (giường @g["MaGiuong"])? Yêu cầu cần Ban quản lý xác nhận mới có hiệu lực.">
-                                <input type="hidden" name="maPhieu" value="@pd["MaPhieu"]" />
-                                <input type="hidden" name="maGiuongMoi" value="@g["MaGiuong"]" />
-                                <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-arrow-left-right me-1"></i>Chuyển đến đây</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+@if ((bool)ViewBag.LaChinhSach)
+{
+    <div class="alert alert-warning py-2 small">
+        <i class="bi bi-info-circle me-1"></i>
+        Bạn thuộc diện chính sách: hệ thống chỉ hiển thị các phòng tiêu chuẩn 6-8 giường.
     </div>
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <input type="hidden" name="maPhieu" value="@pd["MaPhieu"]" />
+            <div class="col-12 col-md-4">
+                <label class="form-label small mb-1">Tìm kiếm</label>
+                <input type="text" name="tuKhoa" value="@q["tuKhoa"]" class="form-control" placeholder="Mã phòng, tên tòa nhà..." />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Tòa nhà</label>
+                <select name="maToa" class="form-select">
+                    <option value="">Tất cả</option>
+                    @foreach (DataRow t in dsToa.Rows)
+                    {
+                        <option value="@t["MaToa"]" selected="@(q["maToa"] == t["MaToa"].ToString())">@t["TenToa"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Loại phòng</label>
+                <select name="loaiPhong" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="4" selected="@(q["loaiPhong"] == "4")">4 giường</option>
+                    <option value="6" selected="@(q["loaiPhong"] == "6")">6 giường</option>
+                    <option value="8" selected="@(q["loaiPhong"] == "8")">8 giường</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Mức giá</label>
+                <select name="mucGia" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="duoi400" selected="@(q["mucGia"] == "duoi400")">Dưới 400k</option>
+                    <option value="400den600" selected="@(q["mucGia"] == "400den600")">400k - 600k</option>
+                    <option value="tren600" selected="@(q["mucGia"] == "tren600")">Trên 600k</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <button type="submit" class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Tra cứu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3">
+    @if (dsPhong.Rows.Count == 0)
+    {
+        <div class="col-12"><div class="alert alert-secondary">Không tìm thấy phòng nào còn giường trống phù hợp để chuyển đến.</div></div>
+    }
+    @foreach (DataRow p in dsPhong.Rows)
+    {
+        int trong = Convert.ToInt32(p["SoGiuongTrong"]);
+        <div class="col-12 col-sm-6 col-lg-4 col-xxl-3">
+            <div class="room-card card h-100">
+                <div class="room-card-top">
+                    <span class="room-code">@p["MaPhong"]</span>
+                    <span class="badge text-bg-success">Còn @trong giường</span>
+                </div>
+                <div class="card-body pt-2">
+                    <div class="room-info"><i class="bi bi-building"></i> @p["TenToa"] · Tầng @p["Tang"]</div>
+                    <div class="room-info"><i class="bi bi-people"></i> Phòng @p["LoaiPhong"] giường</div>
+                    <div class="room-price">@(Convert.ToDecimal(p["GiaPhong"]).ToString("N0"))đ<span>/người/tháng</span></div>
+                </div>
+                <div class="card-footer bg-transparent border-0 pb-3">
+                    <a asp-action="ChonGiuongChuyenPhong" asp-route-maPhieu="@pd["MaPhieu"]" asp-route-maPhongMoi="@p["MaPhong"]" class="btn btn-outline-success w-100">
+                        Chọn phòng này
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 <a asp-action="HopDong" class="btn btn-outline-secondary mt-3"><i class="bi bi-arrow-left me-1"></i>Quay lại hợp đồng</a>

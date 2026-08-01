@@ -53,7 +53,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 pa-table">
             <thead>
-                <tr><th>Ảnh</th><th>Mã phòng</th><th>Tòa / Tầng</th><th>Loại</th><th class="text-center">SV ở</th><th class="text-end">Giá phòng</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr>
+                <tr><th>Mã phòng</th><th>Tòa / Tầng</th><th>Loại</th><th class="text-center">SV ở</th><th class="text-end">Giá phòng</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr>
             </thead>
             <tbody>
                 @if (ds.Rows.Count == 0)
@@ -63,20 +63,7 @@
                 @foreach (DataRow r in ds.Rows)
                 {
                     int soSV = Convert.ToInt32(r["SoSVO"]);
-                    string? anhPhong = r.Table.Columns.Contains("AnhPhong") && r["AnhPhong"] != DBNull.Value ? r["AnhPhong"].ToString() : null;
                     <tr>
-                        <td>
-                            @if (!string.IsNullOrEmpty(anhPhong))
-                            {
-                                <img src="@anhPhong" alt="Ảnh phòng @r["MaPhong"]" class="rounded" style="width:56px;height:56px;object-fit:cover;" />
-                            }
-                            else
-                            {
-                                <div class="rounded bg-light d-flex align-items-center justify-content-center text-muted" style="width:56px;height:56px;">
-                                    <i class="bi bi-image"></i>
-                                </div>
-                            }
-                        </td>
                         <td class="fw-semibold">@r["MaPhong"]</td>
                         <td>@r["TenToa"] · T@(r["Tang"])</td>
                         <td>@r["LoaiPhong"] giường</td>
@@ -89,20 +76,20 @@
                                     <span class="badge text-bg-success">Hoạt động</span>
                                     ; break;
                                 case "BaoTri":
-
                                     <span class="badge text-bg-warning">Bảo trì</span>
                                     ; break;
                                 default:
-
                                     <span class="badge text-bg-secondary">Ngừng sử dụng</span>
                                     ; break;
                             }
                         </td>
                         <td class="text-end">
+                            <a asp-action="AnhPhong" asp-route-maPhong="@r["MaPhong"]" class="btn btn-sm btn-outline-primary" title="Quản lý ảnh phòng">
+                                <i class="bi bi-images"></i>
+                            </a>
                             <button type="button" class="btn btn-sm btn-outline-success"
                                     data-bs-toggle="modal" data-bs-target="#modalSua"
-                                    data-phong="@r["MaPhong"]" data-gia="@Convert.ToDecimal(r["GiaPhong"])" data-tt="@r["TrangThai"]"
-                                    data-anh="@anhPhong">
+                                    data-phong="@r["MaPhong"]" data-gia="@Convert.ToDecimal(r["GiaPhong"])" data-tt="@r["TrangThai"]">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <form method="post" asp-action="XoaPhong" class="d-inline"
@@ -122,7 +109,7 @@
 @* ===== Modal thêm phòng ===== *@
 <div class="modal fade" id="modalThem" tabindex="-1">
     <div class="modal-dialog">
-        <form method="post" asp-action="ThemPhong" enctype="multipart/form-data" class="modal-content">
+        <form method="post" asp-action="ThemPhong" class="modal-content">
             <div class="modal-header pa-modal-head">
                 <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Thêm phòng mới</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -155,10 +142,6 @@
                     <label class="form-label">Giá phòng (đ/người/tháng)</label>
                     <input type="number" name="giaPhong" class="form-control" min="0" step="10000" value="450000" required />
                 </div>
-                <div class="mb-2">
-                    <label class="form-label">Ảnh phòng</label>
-                    <input type="file" name="anhPhong" class="form-control" accept="image/png,image/jpeg,image/webp" />
-                </div>
                 <div class="small text-muted">Mã phòng và danh sách giường được hệ thống sinh tự động.</div>
             </div>
             <div class="modal-footer">
@@ -172,16 +155,13 @@
 @* ===== Modal cập nhật phòng ===== *@
 <div class="modal fade" id="modalSua" tabindex="-1">
     <div class="modal-dialog">
-        <form method="post" asp-action="CapNhatPhong" enctype="multipart/form-data" class="modal-content">
+        <form method="post" asp-action="CapNhatPhong" class="modal-content">
             <div class="modal-header pa-modal-head">
                 <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Cập nhật phòng <span id="suaTen"></span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" name="maPhong" id="suaMa" />
-                <div class="mb-3 text-center">
-                    <img id="suaAnhPreview" src="" alt="Ảnh phòng" class="rounded d-none" style="width:120px;height:120px;object-fit:cover;" />
-                </div>
                 <div class="mb-3">
                     <label class="form-label">Giá phòng (đ/người/tháng)</label>
                     <input type="number" name="giaPhong" id="suaGia" class="form-control" min="0" step="10000" required />
@@ -193,10 +173,6 @@
                         <option value="BaoTri">Bảo trì</option>
                         <option value="NgungSuDung">Ngừng sử dụng</option>
                     </select>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Ảnh phòng mới (để trống nếu giữ ảnh cũ)</label>
-                    <input type="file" name="anhPhong" id="suaAnh" class="form-control" accept="image/png,image/jpeg,image/webp" />
                 </div>
             </div>
             <div class="modal-footer">
@@ -216,16 +192,6 @@
             document.getElementById('suaTen').textContent = btn.dataset.phong;
             document.getElementById('suaGia').value = btn.dataset.gia;
             document.getElementById('suaTT').value = btn.dataset.tt;
-            document.getElementById('suaAnh').value = ''; // reset input file mỗi lần mở modal
-
-            const preview = document.getElementById('suaAnhPreview');
-            if (btn.dataset.anh) {
-                preview.src = btn.dataset.anh;
-                preview.classList.remove('d-none');
-            } else {
-                preview.src = '';
-                preview.classList.add('d-none');
-            }
         });
         // Giới hạn tầng theo số tầng của tòa được chọn
         const themToa = document.getElementById('themToa');

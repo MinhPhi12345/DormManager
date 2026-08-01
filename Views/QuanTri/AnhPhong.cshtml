@@ -1,0 +1,109 @@
+@using System.Data
+@{
+    ViewData["Title"] = "Ảnh phòng " + ViewBag.Phong["MaPhong"];
+    DataRow p = ViewBag.Phong;
+    DataTable dsAnh = ViewBag.DsAnh;
+}
+
+@* Quản lý ảnh phòng (thêm nhiều ảnh, xóa ảnh) | View đơn giản -> style Inline *@
+@section Styles {
+    <style>
+        .anh-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .anh-card {
+            position: relative;
+            border-radius: .6rem;
+            overflow: hidden;
+            border: 1px solid #e3e7e5;
+            background: #fff;
+        }
+
+            .anh-card img {
+                width: 100%;
+                height: 150px;
+                object-fit: cover;
+                display: block;
+            }
+
+        .anh-card-badge {
+            position: absolute;
+            top: .4rem;
+            left: .4rem;
+        }
+
+        .anh-card-xoa {
+            position: absolute;
+            top: .4rem;
+            right: .4rem;
+        }
+
+        .anh-upload-drop {
+            border: 2px dashed #c7d2ce;
+            border-radius: .6rem;
+            padding: 1.5rem;
+            text-align: center;
+            background: #fafbfa;
+        }
+    </style>
+}
+
+<a asp-action="Phong" class="btn btn-outline-secondary btn-sm mb-3"><i class="bi bi-arrow-left me-1"></i>Danh sách phòng</a>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5 fw-bold text-dm mb-1"><i class="bi bi-images me-2"></i>Ảnh phòng @p["MaPhong"]</h2>
+        <div class="small text-muted">@p["TenToa"] · Tầng @p["Tang"] · Phòng @p["LoaiPhong"] giường</div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="post" asp-action="ThemAnhPhong" enctype="multipart/form-data">
+            <input type="hidden" name="maPhong" value="@p["MaPhong"]" />
+            <div class="anh-upload-drop mb-3">
+                <i class="bi bi-cloud-arrow-up fs-2 text-dm"></i>
+                <div class="fw-semibold mt-1">Chọn ảnh phòng để tải lên</div>
+                <div class="small text-muted mb-2">Có thể chọn nhiều ảnh cùng lúc · JPG/PNG/WEBP · tối đa 5MB/ảnh</div>
+                <input type="file" name="anhPhong" class="form-control" accept="image/jpeg,image/png,image/webp" multiple required />
+            </div>
+            <button type="submit" class="btn btn-dm"><i class="bi bi-upload me-1"></i>Tải ảnh lên</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-white fw-semibold">Ảnh hiện có (@dsAnh.Rows.Count)</div>
+    <div class="card-body">
+        @if (dsAnh.Rows.Count == 0)
+        {
+            <div class="text-muted small py-3 text-center">Chưa có ảnh nào cho phòng này. Sinh viên sẽ chỉ thấy thông tin văn bản khi tra cứu phòng.</div>
+        }
+        else
+        {
+            <div class="anh-grid">
+                @for (int i = 0; i < dsAnh.Rows.Count; i++)
+                {
+                    DataRow a = dsAnh.Rows[i];
+                    <div class="anh-card">
+                        @if (i == 0)
+                        {
+                            <span class="badge text-bg-success anh-card-badge">Ảnh đại diện</span>
+                        }
+                        <form method="post" asp-action="XoaAnhPhong" class="anh-card-xoa"
+                              data-confirm-title="Xóa ảnh" data-confirm-level="danger"
+                              data-confirm-message="Xóa ảnh này khỏi phòng @p["MaPhong"]?">
+                            <input type="hidden" name="maAnh" value="@a["MaAnh"]" />
+                            <input type="hidden" name="maPhong" value="@p["MaPhong"]" />
+                            <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                        <img src="@a["DuongDan"]" alt="Ảnh phòng @p["MaPhong"]" />
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>

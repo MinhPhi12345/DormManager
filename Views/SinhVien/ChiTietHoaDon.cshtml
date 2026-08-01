@@ -99,27 +99,51 @@
         {
             <div class="card pay-card">
                 <div class="card-body">
-                    <h3 class="h6 fw-bold mb-3"><i class="bi bi-credit-card me-2 text-dm"></i>Thanh toán trực tuyến</h3>
-                    <form method="post" asp-action="ThanhToan">
-                        <input type="hidden" name="maHD" value="@h["MaHD"]" />
-                        <div class="pay-methods mb-3">
-                            <label class="pay-method">
-                                <input type="radio" name="phuongThuc" value="VNPay" checked />
-                                <span class="pay-method-box"><i class="bi bi-qr-code"></i> VNPay</span>
-                            </label>
-                            <label class="pay-method">
-                                <input type="radio" name="phuongThuc" value="MoMo" />
-                                <span class="pay-method-box"><i class="bi bi-wallet2"></i> MoMo</span>
-                            </label>
-                            <label class="pay-method">
-                                <input type="radio" name="phuongThuc" value="NganHang" />
-                                <span class="pay-method-box"><i class="bi bi-bank"></i> Ngân hàng</span>
-                            </label>
+                    <h3 class="h6 fw-bold mb-3"><i class="bi bi-qr-code me-2 text-dm"></i>Chuyển khoản ngân hàng</h3>
+
+                    <div class="qr-box text-center mb-3">
+                        <img src="@ViewBag.QrUrl" alt="Mã QR chuyển khoản" class="qr-img" />
+                        <div class="small text-muted mt-2">Mở app ngân hàng bất kỳ → quét mã → số tiền và nội dung được điền sẵn</div>
+                    </div>
+
+                    <div class="bank-info mb-3">
+                        <div class="bank-info-row">
+                            <span class="text-muted small">Ngân hàng</span>
+                            <span class="fw-semibold">@ViewBag.TenNganHang</span>
                         </div>
+                        <div class="bank-info-row">
+                            <span class="text-muted small">Số tài khoản</span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="fw-semibold" id="soTaiKhoan">@ViewBag.SoTaiKhoan</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="saoChepSoTK(this)" title="Sao chép số tài khoản">
+                                    <i class="bi bi-copy"></i>
+                                </button>
+                            </span>
+                        </div>
+                        <div class="bank-info-row">
+                            <span class="text-muted small">Chủ tài khoản</span>
+                            <span class="fw-semibold">@ViewBag.ChuTaiKhoan</span>
+                        </div>
+                        <div class="bank-info-row">
+                            <span class="text-muted small">Số tiền</span>
+                            <span class="fw-bold text-dm">@(Convert.ToDecimal(h["TongTien"]).ToString("N0"))đ</span>
+                        </div>
+                        <div class="bank-info-row">
+                            <span class="text-muted small">Nội dung CK</span>
+                            <span class="fw-semibold">HD@h["MaHD"] @Context.Session.GetString("MSSV")</span>
+                        </div>
+                    </div>
+
+                    <form method="post" asp-action="ThanhToan"
+                          data-confirm-title="Xác nhận đã chuyển khoản"
+                          data-confirm-level="success"
+                          data-confirm-message="Xác nhận bạn đã chuyển khoản đủ @(Convert.ToDecimal(h["TongTien"]).ToString("N0"))đ? Hệ thống sẽ đánh dấu hóa đơn này đã thanh toán.">
+                        <input type="hidden" name="maHD" value="@h["MaHD"]" />
+                        <input type="hidden" name="phuongThuc" value="NganHang" />
                         <button type="submit" class="btn btn-dm w-100 py-2">
-                            Thanh toán @(Convert.ToDecimal(h["TongTien"]).ToString("N0"))đ
+                            <i class="bi bi-check-circle me-1"></i>Tôi đã chuyển khoản - Xác nhận thanh toán
                         </button>
- <div class="small text-muted mt-2 text-center">(Mô phỏng cổng thanh toán trực tuyến )</div>
+                        <div class="small text-muted mt-2 text-center">Vui lòng chuyển khoản trước, sau đó bấm xác nhận để hệ thống cập nhật trạng thái hóa đơn.</div>
                     </form>
                 </div>
             </div>
@@ -148,3 +172,16 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        function saoChepSoTK(btn) {
+            var soTK = document.getElementById('soTaiKhoan').textContent.trim();
+            navigator.clipboard.writeText(soTK).then(function () {
+                var icon = btn.querySelector('i');
+                icon.className = 'bi bi-check-lg';
+                setTimeout(function () { icon.className = 'bi bi-copy'; }, 1500);
+            });
+        }
+    </script>
+}

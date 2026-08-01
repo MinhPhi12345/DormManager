@@ -50,15 +50,15 @@
                         <a class="nav-item-link @(controller == "QuanLy" && (action == "Phong" || action == "Giuong") ? "active" : "")" asp-controller="QuanLy" asp-action="Phong"><i class="bi bi-door-open"></i> Phòng &amp; giường</a>
                         <a class="nav-item-link @Active("QuanLy", "ChiSo")" asp-controller="QuanLy" asp-action="ChiSo"><i class="bi bi-speedometer2"></i> Chỉ số điện/nước</a>
                         <a class="nav-item-link @Active("QuanLy", "TaoHoaDon")" asp-controller="QuanLy" asp-action="TaoHoaDon"><i class="bi bi-receipt-cutoff"></i> Lập hóa đơn</a>
+                        <a class="nav-item-link @Active("QuanLy", "HoaDon")" asp-controller="QuanLy" asp-action="HoaDon"><i class="bi bi-receipt"></i> Hóa đơn hệ thống</a>
+                        <a class="nav-item-link @Active("QuanLy", "BaoCaoCongNo")" asp-controller="QuanLy" asp-action="BaoCaoCongNo"><i class="bi bi-cash-coin"></i> Báo cáo công nợ</a>
                         <a class="nav-item-link @Active("QuanLy", "LichSuThongBao")" asp-controller="QuanLy" asp-action="LichSuThongBao"><i class="bi bi-bell"></i> Lịch sử thông báo</a>
                         <a class="nav-item-link @Active("QuanLy", "ViPham")" asp-controller="QuanLy" asp-action="ViPham"><i class="bi bi-exclamation-triangle"></i> Sinh viên vi phạm</a>
-                        <a class="nav-item-link @Active("QuanLy", "DanhGiaPhong")" asp-controller="QuanLy" asp-action="DanhGiaPhong"><i class="bi bi-star"></i> Đánh giá phòng/KTX</a>
                     }
                     else if (vaiTro == "QTV")
                     {
                         <div class="nav-group-label">Quản trị hệ thống</div>
                         <a class="nav-item-link @Active("QuanTri", "ThongKe")" asp-controller="QuanTri" asp-action="ThongKe"><i class="bi bi-bar-chart-line"></i> Thống kê tổng quan</a>
-                        <a class="nav-item-link @Active("QuanTri", "BaoCaoCongNo")" asp-controller="QuanTri" asp-action="BaoCaoCongNo"><i class="bi bi-cash-coin"></i> Báo cáo công nợ</a>
                         <a class="nav-item-link @Active("QuanTri", "Phong")" asp-controller="QuanTri" asp-action="Phong"><i class="bi bi-houses"></i> Quản lý phòng</a>
                         <a class="nav-item-link @Active("QuanTri", "HoaDon")" asp-controller="QuanTri" asp-action="HoaDon"><i class="bi bi-receipt"></i> Hóa đơn hệ thống</a>
                         <a class="nav-item-link @Active("QuanTri", "DonGia")" asp-controller="QuanTri" asp-action="DonGia"><i class="bi bi-lightning-charge"></i> Đơn giá điện/nước</a>
@@ -70,7 +70,6 @@
                         <a class="nav-item-link @(controller == "QuanLy" && action == "DonYeuCau" ? "active" : "")" asp-controller="QuanLy" asp-action="DonYeuCau"><i class="bi bi-inboxes"></i> Đơn phản hồi, yêu cầu</a>
                         <a class="nav-item-link @(controller == "QuanLy" && action == "DonDangKy" ? "active" : "")" asp-controller="QuanLy" asp-action="DonDangKy"><i class="bi bi-clipboard-check"></i> Đơn đăng ký KTX</a>
                         <a class="nav-item-link @(controller == "QuanLy" && action == "ViPham" ? "active" : "")" asp-controller="QuanLy" asp-action="ViPham"><i class="bi bi-exclamation-triangle"></i> Sinh viên vi phạm</a>
-                        <a class="nav-item-link @(controller == "QuanLy" && action == "DanhGiaPhong" ? "active" : "")" asp-controller="QuanLy" asp-action="DanhGiaPhong"><i class="bi bi-star"></i> Đánh giá phòng/KTX</a>
                     }
                 </nav>
 
@@ -115,7 +114,7 @@
                         <i class="bi bi-lock-fill mt-1"></i>
                         <div>
                             <strong>Tài khoản của bạn đang bị khóa một số tính năng</strong> do hóa đơn quá hạn thanh toán trên 7 ngày (theo quy định QD05).
-                            Bạn tạm thời không thể <b>đăng ký ở KTX</b> và <b>gia hạn lưu trú</b> cho đến khi thanh toán hết nợ.
+                            Bạn tạm thời không thể <b>đăng ký ở KTX</b>, <b>gia hạn lưu trú</b> và <b>chuyển phòng</b> cho đến khi thanh toán hết nợ.
                             Vui lòng vào mục <a asp-controller="SinhVien" asp-action="HoaDon" class="alert-link">Hóa đơn</a> để thanh toán — tài khoản sẽ <b>tự động mở khóa ngay</b> sau khi thanh toán xong.
                         </div>
                     </div>

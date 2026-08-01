@@ -13,9 +13,6 @@ namespace DormManager.Data
         /// <summary>sp_ThongKe: 4 result set (6 chỉ số tổng, doanh thu, sản lượng, đơn theo trạng thái).</summary>
         public static DataSet ThongKe() => Db.QuerySetProc("sp_ThongKe");
 
-        /// <summary>sp_BaoCaoCongNo: chi tiết công nợ từng sinh viên (tổng nợ, số ngày trễ nhất).</summary>
-        public static DataTable BaoCaoCongNo() => Db.QueryProc("sp_BaoCaoCongNo");
-
         /// <summary>sp_XoaPhong: transaction xóa giường + xóa phòng.</summary>
         public static void XoaPhong(string maPhong)
             => Db.ExecProc("sp_XoaPhong", Db.P("@MaPhong", maPhong));
