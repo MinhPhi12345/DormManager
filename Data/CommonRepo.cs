@@ -16,10 +16,13 @@ namespace DormManager.Data
         public static int LayThamSoInt(string maThamSo)
             => int.Parse(LayThamSo(maThamSo)!);
 
-        /// <summary>sp_Chung_ThemThongBao: ghi 1 thông báo gửi sinh viên (Email/SMS).</summary>
-        public static void ThemThongBao(string mssv, int? maHD, string noiDung, string kenh = "Email")
+        /// <summary>sp_Chung_ThemThongBao: ghi 1 thông báo gửi sinh viên (Email/SMS). trangThaiGui phản ánh
+        /// đúng kết quả gửi THẬT (vd email server trả về thất bại) - mặc định ThanhCong cho các kênh chưa
+        /// tích hợp gửi thật (SMS).</summary>
+        public static void ThemThongBao(string mssv, int? maHD, string noiDung, string kenh = "Email", string trangThaiGui = "ThanhCong")
             => Db.ExecProc("sp_Chung_ThemThongBao",
-                Db.P("@MSSV", mssv), Db.P("@MaHD", (object?)maHD), Db.P("@NoiDung", noiDung), Db.P("@Kenh", kenh));
+                Db.P("@MSSV", mssv), Db.P("@MaHD", (object?)maHD), Db.P("@NoiDung", noiDung), Db.P("@Kenh", kenh),
+                Db.P("@TrangThaiGui", trangThaiGui));
 
         /// <summary>sp_Chung_ThemNhatKy: ghi 1 dòng nhật ký thao tác hệ thống (audit log) cho QTV.</summary>
         public static void ThemNhatKy(int? maTK, string? hoTen, string? vaiTro, string hanhDong, string doiTuong, string noiDung)

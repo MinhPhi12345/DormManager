@@ -5,6 +5,7 @@
     border: 1px solid transparent;
 }
 .tk-stat:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(20,40,35,.16); border-color: rgba(13,92,77,.15); }
+.tk-stat-static { cursor: default; }
 a.tk-stat-link { text-decoration: none; color: inherit; display: block; cursor: pointer; }
 .tk-arrow {
     position: absolute; top: .6rem; right: .7rem; font-size: .85rem; color: #b7bfba;

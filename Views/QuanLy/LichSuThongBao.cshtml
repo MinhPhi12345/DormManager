@@ -24,15 +24,24 @@
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-12 col-md-6">
- <label class="form-label small mb-1">Tra cứu</label>
+            <div class="col-12 col-md-5">
+                <label class="form-label small mb-1">Tra cứu</label>
                 <input type="text" name="tuKhoa" value="@Context.Request.Query["tuKhoa"]"
                        class="form-control" placeholder="MSSV, họ tên, nội dung thông báo..." />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Từ ngày</label>
+                <input type="date" name="tuNgay" value="@ViewBag.TuNgay" class="form-control" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Đến ngày</label>
+                <input type="date" name="denNgay" value="@ViewBag.DenNgay" class="form-control" />
             </div>
             <div class="col-12 col-md-2">
                 <button class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Tra cứu</button>
             </div>
         </form>
+        <div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Mặc định chỉ hiện 30 ngày gần nhất - xóa 2 ô ngày để xem tất cả (kết quả sẽ hiển thị theo trang).</div>
     </div>
 </div>
 
@@ -40,7 +49,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 tb-table">
             <thead>
-                <tr><th>#</th><th>Sinh viên</th><th>Nội dung</th><th>HĐ liên quan</th><th>Kênh</th><th>Thời gian gửi</th><th>Kết quả</th></tr>
+                <tr><th>#</th><th>Sinh viên</th><th>Nội dung</th><th>HĐ liên quan</th><th>Gửi đến (Email)</th><th>Thời gian gửi</th><th>Kết quả</th></tr>
             </thead>
             <tbody>
                 @if (ds.Rows.Count == 0)
@@ -54,22 +63,28 @@
                         <td><div>@r["HoTen"]</div><div class="small text-muted">@r["MSSV"]</div></td>
                         <td class="tb-content small">@r["NoiDung"]</td>
                         <td>@(r["MaHD"] == DBNull.Value ? "—" : $"#{r["MaHD"]}")</td>
-                        <td><span class="badge text-bg-light border">@r["Kenh"]</span></td>
+                        <td class="small"><i class="bi bi-envelope me-1 text-muted"></i>@r["Email"]</td>
                         <td class="small">@(Convert.ToDateTime(r["ThoiGianGui"]).ToString("HH:mm dd/MM/yyyy"))</td>
                         <td>
-                            @if (r["TrangThaiGui"].ToString() == "ThanhCong")
+                            @switch (r["TrangThaiGui"].ToString())
                             {
-                                <span class="badge text-bg-success">Thành công</span>
-                            }
-                            else
-                            {
-
-                                <span class="badge text-bg-danger">Thất bại</span>
+                                case "ThanhCong":
+                                    <span class="badge text-bg-success">Thành công</span>
+                                    ; break;
+                                case "ChoGuiLai":
+                                    <span class="badge text-bg-warning">Chờ gửi lại</span>
+                                    ; break;
+                                default:
+                                    <span class="badge text-bg-danger">Thất bại</span>
+                                    ; break;
                             }
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
+    </div>
+    <div class="px-3 pb-3">
+        @await Html.PartialAsync("_Pager", (DormManager.Helpers.PagerViewModel)ViewBag.Pager)
     </div>
 </div>

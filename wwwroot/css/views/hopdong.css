@@ -1,0 +1,91 @@
+/* ===== Hợp đồng lưu trú - thiết kế dạng "văn bản hợp đồng" cho SV ===== */
+.hd-rule-box {
+    background: linear-gradient(135deg, #f4f9f7, #fdfaf0);
+    border: 1px solid #e3ecE7;
+    border-left: 4px solid var(--dm-primary);
+    border-radius: .7rem;
+    padding: 1rem 1.2rem;
+    font-size: .86rem;
+    color: #46514c;
+    line-height: 1.6;
+}
+.hd-rule-box b { color: var(--dm-primary-dark); }
+.hd-rule-title {
+    font-weight: 700; color: var(--dm-primary-dark);
+    display: flex; align-items: center; gap: .5rem;
+    margin-bottom: .4rem; font-size: .95rem;
+}
+
+/* ---------- Thẻ hợp đồng dạng văn bản chính thức ---------- */
+.hd-card {
+    position: relative;
+    border-radius: .9rem;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(20,40,35,.09);
+    overflow: hidden;
+    border: 1px solid #e7ece9;
+}
+.hd-card.hd-inactive { opacity: .72; }
+
+.hd-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .9rem 1.3rem;
+    background: linear-gradient(90deg, var(--dm-primary-dark), var(--dm-primary));
+    color: #fff;
+}
+.hd-card.hd-inactive .hd-card-top { background: linear-gradient(90deg, #6b756f, #8b948f); }
+
+.hd-so {
+    font-family: "Segoe UI", monospace;
+    font-weight: 700; letter-spacing: .04em; font-size: .95rem;
+}
+.hd-so small { display: block; font-weight: 400; opacity: .8; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
+
+.hd-status-ribbon {
+    font-weight: 700; font-size: .78rem; padding: .35rem .8rem;
+    border-radius: 2rem; background: rgba(255,255,255,.18);
+    display: inline-flex; align-items: center; gap: .4rem;
+}
+
+.hd-card-body { padding: 1.2rem 1.3rem; }
+
+.hd-info-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .8rem 1.4rem;
+    padding-bottom: 1rem; margin-bottom: 1rem;
+    border-bottom: 1px dashed #dde5e1;
+}
+.hd-info-item .hd-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #8b948f; }
+.hd-info-item .hd-value { font-weight: 600; color: #223; font-size: .95rem; }
+
+/* ---------- Thanh thời hạn / đếm ngược ---------- */
+.hd-thoihan-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
+.hd-thoihan-dates { font-size: .84rem; color: #46514c; }
+.hd-progress { height: 8px; border-radius: 1rem; background: #eef1f0; overflow: hidden; }
+.hd-progress-bar { height: 100%; border-radius: 1rem; background: var(--dm-primary); transition: width .3s; }
+.hd-progress-bar.hd-progress-warn { background: var(--dm-accent); }
+.hd-progress-bar.hd-progress-danger { background: #dc3545; }
+
+.hd-countdown {
+    font-weight: 700; font-size: .82rem; padding: .25rem .7rem; border-radius: 2rem;
+}
+.hd-countdown-ok { background: #e3f3ec; color: var(--dm-primary-dark); }
+.hd-countdown-warn { background: #fdf1dc; color: #a3690e; }
+.hd-countdown-danger { background: #fdeaea; color: #dc3545; }
+
+/* ---------- Khu vực hành động ---------- */
+.hd-actions { padding-top: 1rem; margin-top: .3rem; }
+.hd-eligible-note {
+    font-size: .78rem; color: #8b948f; margin-top: .5rem; display: flex; gap: .4rem; align-items: flex-start;
+}
+.hd-eligible-note.hd-note-warn { color: #a3690e; }
+
+.hd-chinhsach-tag {
+    display: inline-flex; align-items: center; gap: .35rem;
+    font-size: .76rem; font-weight: 600; color: #a3690e;
+    background: #fdf1dc; padding: .25rem .6rem; border-radius: .4rem; margin-top: .6rem;
+}
+
+@media (max-width: 575.98px) {
+    .hd-info-grid { grid-template-columns: repeat(2, 1fr); }
+}

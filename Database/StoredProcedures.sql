@@ -1,21 +1,5 @@
 /* =============================================================================
    STORED PROCEDURES - DormManager (Nhóm 19)   [KIẾN TRÚC HYBRID]
-
-   Dự án áp dụng kiến trúc truy cập dữ liệu HYBRID: chỉ những nghiệp vụ THỰC SỰ
-   hưởng lợi từ Stored Procedure mới giữ ở đây (26 SP), còn các thao tác
-   CRUD / truy vấn 1 câu đơn giản được viết trực tiếp bằng SQL tham số hóa
-   trong Controller (gọi qua Db.Query / Db.Exec / Db.Scalar).
-
-   Tiêu chí giữ lại 1 SP:
-     - Giao dịch nhiều bảng cần BEGIN TRAN...COMMIT/ROLLBACK để đảm bảo toàn vẹn
-       (vd sp_ThanhToan, sp_XacNhanTraPhong, sp_TaoHoaDonDong, sp_XacNhanDangKy).
-     - Trả về NHIỀU result set trong 1 lượt gọi, giảm round-trip
-       (sp_TongQuan, sp_ThongKe, sp_DotDangMoChoSV).
-     - Xử lý theo tập hợp / tổng hợp / MERGE (sp_LuuChiSo, sp_ThongKe).
-     - Job tự động quét theo tập hợp (sp_CapNhatHoaDonQuaHan, sp_KhoaTaiKhoanQuaHan,
-       sp_GhiNhanViPham, sp_CapNhatDiemViPham, sp_CapNhatTrangThaiDot).
-     - Tiện ích dùng chung nhiều nơi (sp_Chung_LayThamSo, sp_Chung_ThemThongBao).
-
    Chạy file này SAU KHI đã chạy DormManager.sql (tạo bảng + dữ liệu mẫu).
    ========================================================================== */
 
@@ -42,15 +26,16 @@ GO
 IF OBJECT_ID('sp_Chung_ThemThongBao', 'P') IS NOT NULL DROP PROCEDURE sp_Chung_ThemThongBao;
 GO
 CREATE PROCEDURE sp_Chung_ThemThongBao
-    @MSSV    VARCHAR(10),
-    @MaHD    INT = NULL,
-    @NoiDung NVARCHAR(500),
-    @Kenh    VARCHAR(10) = 'Email'
+    @MSSV        VARCHAR(10),
+    @MaHD        INT = NULL,
+    @NoiDung     NVARCHAR(500),
+    @Kenh        VARCHAR(10) = 'Email',
+    @TrangThaiGui VARCHAR(10) = 'ThanhCong'   -- ghi đúng kết quả gửi email THẬT (ThanhCong/ThatBai)
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh)
-    VALUES (@MSSV, @MaHD, @NoiDung, @Kenh);
+    INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, TrangThaiGui)
+    VALUES (@MSSV, @MaHD, @NoiDung, @Kenh, @TrangThaiGui);
 END
 GO
 
@@ -291,6 +276,33 @@ BEGIN
 END
 GO
 
+-- QD07: nguồn cho job nhắc nhở lần hai - hóa đơn Chờ thanh toán còn tối đa TS5 ngày là đến hạn
+-- (và chưa quá hạn), CHƯA từng được nhắc (NOT EXISTS THONGBAO đánh dấu "Nhắc nhở thanh toán:").
+-- Chỉ trả danh sách candidate, việc gửi email THẬT do C# đảm nhiệm (SP không gọi được SMTP).
+IF OBJECT_ID('sp_NguonNhacNhoHanThanhToan', 'P') IS NOT NULL DROP PROCEDURE sp_NguonNhacNhoHanThanhToan;
+GO
+CREATE PROCEDURE sp_NguonNhacNhoHanThanhToan
+    @TS5 INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT DISTINCT sv.MSSV, sv.HoTen, tk.Email, h.MaHD, h.MaPhong, h.Thang, h.TongTien, h.HanThanhToan,
+           DATEDIFF(DAY, CAST(GETDATE() AS DATE), h.HanThanhToan) AS SoNgayConLai
+    FROM HOADON h
+    JOIN GIUONG g ON g.MaPhong = h.MaPhong
+    JOIN PHIEUDANGKY pd ON pd.MaGiuong = g.MaGiuong AND pd.TrangThai = 'DangO'
+    JOIN SINHVIEN sv ON sv.MSSV = pd.MSSV
+    JOIN TAIKHOAN tk ON tk.MaTK = sv.MaTK
+    WHERE h.TrangThai = 'ChoThanhToan'
+      AND DATEDIFF(DAY, CAST(GETDATE() AS DATE), h.HanThanhToan) BETWEEN 0 AND @TS5
+      AND NOT EXISTS (
+          SELECT 1 FROM THONGBAO t
+          WHERE t.MaHD = h.MaHD AND t.MSSV = sv.MSSV AND t.NoiDung LIKE N'Nhắc nhở thanh toán:%'
+      )
+    ORDER BY h.HanThanhToan;
+END
+GO
+
 --: mở khóa tài khoản + gửi thông báo (dùng OUTPUT lấy MSSV ngay trong câu UPDATE)
 IF OBJECT_ID('sp_MoKhoa', 'P') IS NOT NULL DROP PROCEDURE sp_MoKhoa;
 GO
@@ -331,13 +343,22 @@ CREATE PROCEDURE sp_XuLyDon
 AS
 BEGIN
     SET NOCOUNT ON;
-    DECLARE @MSSV VARCHAR(10), @LoaiDon VARCHAR(10);
-    SELECT @MSSV = MSSV, @LoaiDon = LoaiDon FROM DONYEUCAU WHERE MaDon = @MaDon;
+    DECLARE @MSSV VARCHAR(10), @LoaiDon VARCHAR(10), @TrangThaiHienTai VARCHAR(10);
+    SELECT @MSSV = MSSV, @LoaiDon = LoaiDon, @TrangThaiHienTai = TrangThai FROM DONYEUCAU WHERE MaDon = @MaDon;
     IF @MSSV IS NULL RETURN;
 
     IF @LoaiDon = 'TraPhong' AND @TrangThai = 'DaXuLy'
     BEGIN
         RAISERROR(N'Đơn trả phòng phải dùng chức năng "Xác nhận trả phòng" để đảm bảo giường được giải phóng đúng cách.', 16, 1);
+        RETURN;
+    END
+
+    -- Chặn tận gốc (phòng trường hợp gọi thẳng SP/bỏ qua UI): đơn chuyển/trả phòng đã
+    -- "Đã xử lý" nghĩa là giường/hợp đồng đã thay đổi thật sự trong CSDL, không thể đổi
+    -- lại trạng thái/ưu tiên qua đường Xử lý đơn chung nữa (phải giữ nguyên DaXuLy vĩnh viễn).
+    IF @LoaiDon IN ('TraPhong', 'ChuyenPhong') AND @TrangThaiHienTai = 'DaXuLy'
+    BEGIN
+        RAISERROR(N'Đơn này đã được xác nhận và xử lý xong (giường/hợp đồng đã thay đổi), không thể chỉnh sửa lại.', 16, 1);
         RETURN;
     END
 

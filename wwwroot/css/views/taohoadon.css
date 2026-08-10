@@ -12,7 +12,49 @@
     color: #7a8580; background: #fafbfa; white-space: nowrap;
 }
 
+/* ---------- Phân biệt rõ 2 bước: Xem trước (chưa lưu) vs Hóa đơn nháp (đã lưu) ---------- */
+.thd-step { border-left: 4px solid transparent; }
+.thd-step-preview { border-left-color: #9aa8a2; }
+.thd-step-nhap { border-left-color: var(--dm-accent); }
+
+.thd-step-badge {
+    display: inline-flex; align-items: center;
+    font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+    padding: .3rem .6rem; border-radius: .4rem;
+}
+.thd-step-badge-preview { background: #eef1f0; color: #5c6660; }
+.thd-step-badge-nhap { background: #fdf1dc; color: #a3690e; }
+
+.thd-pill-preview { background: #eef1f0; color: #5c6660; font-weight: 500; font-size: .72rem; }
+.thd-pill-nhap { background: var(--dm-accent); color: #fff; font-weight: 600; font-size: .72rem; }
+
+.thd-summary-bar {
+    display: flex; flex-wrap: wrap; gap: 1.4rem;
+    padding: .6rem 1.1rem; font-size: .87rem; color: #46514c;
+    background: #fafbfa; border-bottom: 1px solid #eef1f0;
+}
+
+.thd-note {
+    font-size: .82rem; color: #6b756f; line-height: 1.5;
+    padding: .7rem 1.1rem; background: #fffdf6; border-bottom: 1px solid #eef1f0;
+}
+
+.thd-toolbar {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    padding: .6rem 1.1rem; border-bottom: 1px solid #eef1f0;
+}
+
+.thd-breakdown { font-size: .74rem; color: #8b948f; margin-top: .1rem; }
+
+/* Tách cột Hạn thanh toán ra khỏi cột Tổng tiền bằng khoảng đệm lớn + vạch chia dọc */
+.thd-table td.thd-col-han,
+.thd-table th.thd-col-han {
+    padding-left: 2.75rem !important;
+    border-left: 1px solid #e8ecea;
+}
+
 @media (max-width: 767.98px) {
     .thd-table { font-size: .83rem; }
     .thd-price { gap: .6rem; font-size: .8rem; }
+    .thd-summary-bar { gap: .7rem; font-size: .82rem; }
 }

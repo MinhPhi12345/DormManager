@@ -57,15 +57,12 @@
         </a>
     </div>
     <div class="col-6 col-md-4 col-xl-2">
-        <a class="tk-stat-link" href="#chartDoanhThu" title="Xem biểu đồ doanh thu">
-            <div class="tk-stat card p-3">
-                <i class="bi bi-arrow-right-short tk-arrow"></i>
-                <span class="tk-icon bg-6"><i class="bi bi-cash-stack"></i></span>
-                <div class="tk-num">@(Convert.ToDecimal(ViewBag.TongThu).ToString("N0"))đ</div>
-                <div class="tk-label">Tổng thu</div>
-                <div class="tk-delta @deltaClass"><i class="bi @deltaIcon"></i>@deltaText</div>
-            </div>
-        </a>
+        <div class="tk-stat tk-stat-static card p-3">
+            <span class="tk-icon bg-6"><i class="bi bi-cash-stack"></i></span>
+            <div class="tk-num">@(Convert.ToDecimal(ViewBag.TongThu).ToString("N0"))đ</div>
+            <div class="tk-label">Tổng thu</div>
+            <div class="tk-delta @deltaClass"><i class="bi @deltaIcon"></i>@deltaText</div>
+        </div>
     </div>
 </div>
 

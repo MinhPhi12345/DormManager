@@ -5,9 +5,25 @@
     DataTable dsNhap = ViewBag.DsNhap;
     DataRow? dg = ViewBag.DonGia as DataRow;
     string thang = ViewBag.Thang;
+
+    decimal tongXemTruoc = 0;
+    decimal tongNhap = 0;
+    foreach (DataRow r in dsNhap.Rows) tongNhap += Convert.ToDecimal(r["TongTien"]);
+    if (dg != null)
+    {
+        foreach (DataRow r in xemTruoc.Rows)
+        {
+            decimal kwh0 = Convert.ToDecimal(r["DienCuoiKy"]) - Convert.ToDecimal(r["DienDauKy"]);
+            decimal m30 = Convert.ToDecimal(r["NuocCuoiKy"]) - Convert.ToDecimal(r["NuocDauKy"]);
+            decimal tienDien0 = Math.Round(kwh0 * Convert.ToDecimal(dg["GiaDien"]));
+            decimal tienNuoc0 = Math.Round(m30 * Convert.ToDecimal(dg["GiaNuoc"]));
+            decimal tienPhong0 = Convert.ToDecimal(r["GiaPhong"]) * Convert.ToInt32(r["SoNguoiO"]) + Convert.ToDecimal(dg["PhiDichVu"]);
+            tongXemTruoc += tienPhong0 + tienDien0 + tienNuoc0;
+        }
+    }
 }
 
-@* Tạo hóa đơn + Xác nhận gửi | View phức tạp -> style External *@
+@* Tạo hóa đơn + Xác nhận gửi / Hủy nháp | View phức tạp -> style External *@
 @section Styles {
     <link rel="stylesheet" href="~/css/views/taohoadon.css" />
 }
@@ -42,25 +58,38 @@
     chưa được tính tiền phòng tháng này, bắt đầu tính từ tháng kế tiếp.
 </div>
 
-@* ===== Bước 1: Xem trước & tạo hóa đơn hàng loạt ===== *@
-<div class="card mb-3">
+@* ===== Bước 1: Xem trước (chưa lưu vào hệ thống) ===== *@
+<div class="card mb-3 thd-step thd-step-preview">
     <div class="card-header thd-header">
-        <span><i class="bi bi-1-circle me-2"></i>Xem trước hóa đơn từ chỉ số đã nhập - tháng @thang</span>
+        <div>
+            <span class="thd-step-badge thd-step-badge-preview"><i class="bi bi-eye me-1"></i>Bước 1 · Xem trước</span>
+            <span class="fw-semibold ms-2">Tính toán từ chỉ số đã nhập - tháng @thang</span>
+            <span class="badge rounded-pill thd-pill-preview ms-2">Chưa lưu vào hệ thống</span>
+        </div>
         @if (xemTruoc.Rows.Count > 0 && dg != null)
         {
             <form method="post" asp-action="TaoHoaDonThang" class="d-flex align-items-center gap-2"
                   data-confirm-title="Tạo hóa đơn hàng loạt" data-confirm-level="warning"
-                  data-confirm-message="Tạo hóa đơn (bản nháp) cho toàn bộ phòng bên dưới? Chỉ số sẽ bị chốt sau khi tạo.">
+                  data-confirm-message="Tạo hóa đơn (bản nháp) cho toàn bộ phòng bên dưới? Chỉ số sẽ bị chốt sau khi tạo - nếu cần sửa chỉ số sau đó, bạn có thể hủy hóa đơn nháp ở Bước 2 để mở lại.">
                 <input type="hidden" name="thang" value="@thang" />
                 <label class="small text-nowrap">Hạn TT sau</label>
                 <input type="number" name="hanThanhToanNgay" value="15" min="1" max="60" class="form-control form-control-sm" style="width:70px" />
                 <span class="small text-nowrap">ngày</span>
                 <button type="submit" class="btn btn-sm btn-dm text-nowrap">
-                    <i class="bi bi-receipt me-1"></i>Tạo @xemTruoc.Rows.Count hóa đơn
+                    <i class="bi bi-receipt me-1"></i>Lưu thành @xemTruoc.Rows.Count hóa đơn nháp
                 </button>
             </form>
         }
     </div>
+
+    @if (xemTruoc.Rows.Count > 0 && dg != null)
+    {
+        <div class="thd-summary-bar">
+            <span><i class="bi bi-door-closed me-1"></i><b>@xemTruoc.Rows.Count</b> phòng sẽ được lập hóa đơn</span>
+            <span><i class="bi bi-cash-stack me-1"></i>Tổng dự kiến: <b class="text-dm">@tongXemTruoc.ToString("N0")đ</b></span>
+        </div>
+    }
+
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 thd-table">
             <thead>
@@ -112,15 +141,62 @@
     </div>
 </div>
 
-@* ===== Bước 2: Hóa đơn nháp chờ xác nhận gửi ===== *@
-<div class="card">
+@* ===== Bước 2: Hóa đơn nháp - đã lưu, đã chốt chỉ số ===== *@
+<div class="card thd-step thd-step-nhap">
     <div class="card-header thd-header">
-        <span><i class="bi bi-2-circle me-2"></i>Hóa đơn bản nháp - kiểm tra và xác nhận gửi tới sinh viên</span>
+        <div>
+            <span class="thd-step-badge thd-step-badge-nhap"><i class="bi bi-save me-1"></i>Bước 2 · Hóa đơn nháp</span>
+            <span class="fw-semibold ms-2">Kiểm tra kỹ trước khi gửi tới sinh viên</span>
+            <span class="badge rounded-pill thd-pill-nhap ms-2">Đã lưu · chỉ số đã chốt</span>
+        </div>
     </div>
+
+    <div class="thd-note">
+        <i class="bi bi-lightbulb me-1"></i>
+        Đây là hóa đơn <b>đã lưu vào hệ thống</b> (khác với bảng xem trước ở Bước 1). Chỉ số điện/nước tương ứng đã bị khóa lại.
+        Nếu phát hiện sai sót, bấm <b>Hủy</b> để xóa hóa đơn này và mở lại chỉ số cho sửa; bấm <b>Gửi</b> để phát hành chính thức
+        tới sinh viên trong phòng - <u>hóa đơn đã gửi thì không thể hoàn tác</u>.
+    </div>
+
+    @if (dsNhap.Rows.Count > 0)
+    {
+        <div class="thd-summary-bar">
+            <span><i class="bi bi-receipt-cutoff me-1"></i><b>@dsNhap.Rows.Count</b> hóa đơn nháp đang chờ</span>
+            <span><i class="bi bi-cash-stack me-1"></i>Tổng: <b class="text-dm">@tongNhap.ToString("N0")đ</b></span>
+        </div>
+
+        <div class="thd-toolbar">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="chonTatCa" />
+                <label class="form-check-label small" for="chonTatCa">Chọn tất cả</label>
+            </div>
+            <span id="thdDaChon" class="small text-muted">Chưa chọn hóa đơn nào</span>
+            <div class="ms-auto d-flex gap-2">
+                <button type="submit" form="formHangLoat" asp-action="HuyHoaDonHangLoat" id="btnHuyHangLoat" class="btn btn-sm btn-outline-danger" disabled
+                        data-confirm-title="Hủy hàng loạt hóa đơn nháp" data-confirm-level="danger"
+                        data-confirm-message="Hủy các hóa đơn nháp đã chọn? Chỉ số điện/nước tương ứng sẽ được mở lại để sửa.">
+                    <i class="bi bi-x-circle me-1"></i>Hủy đã chọn
+                </button>
+                <button type="submit" form="formHangLoat" asp-action="GuiHoaDonHangLoat" id="btnGuiHangLoat" class="btn btn-sm btn-dm" disabled
+                        data-confirm-title="Gửi hàng loạt hóa đơn" data-confirm-level="warning"
+                        data-confirm-message="Gửi các hóa đơn đã chọn tới sinh viên? Không thể hoàn tác sau khi gửi.">
+                    <i class="bi bi-send me-1"></i>Gửi đã chọn
+                </button>
+            </div>
+        </div>
+    }
+    <form id="formHangLoat" method="post"></form>
+
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 thd-table">
             <thead>
-                <tr><th>Mã HĐ</th><th>Phòng</th><th>Tháng</th><th class="text-end">Tổng tiền</th><th>Hạn thanh toán</th><th class="text-end"></th></tr>
+                <tr>
+                    @if (dsNhap.Rows.Count > 0)
+                    {
+                        <th style="width:36px"></th>
+                    }
+                    <th>Mã HĐ</th><th>Phòng</th><th>Tháng</th><th class="text-end">Chi tiết / Tổng tiền</th><th class="thd-col-han">Hạn thanh toán</th><th class="text-end">Thao tác</th>
+                </tr>
             </thead>
             <tbody>
                 @if (dsNhap.Rows.Count == 0)
@@ -130,17 +206,36 @@
                 @foreach (DataRow r in dsNhap.Rows)
                 {
                     <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input chk-hd" form="formHangLoat" name="maHDs" value="@r["MaHD"]"
+                                   data-tien="@(Convert.ToDecimal(r["TongTien"]).ToString(System.Globalization.CultureInfo.InvariantCulture))" />
+                        </td>
                         <td class="fw-semibold">#@r["MaHD"]</td>
                         <td>@r["MaPhong"]</td>
-                        <td>@r["Thang"]</td>
-                        <td class="text-end fw-bold">@(Convert.ToDecimal(r["TongTien"]).ToString("N0"))đ</td>
-                        <td>@(Convert.ToDateTime(r["HanThanhToan"]).ToString("dd/MM/yyyy"))</td>
+                        <td><span class="badge text-bg-light border">@r["Thang"]</span></td>
                         <td class="text-end">
+                            <div class="fw-bold">@(Convert.ToDecimal(r["TongTien"]).ToString("N0"))đ</div>
+                            <div class="thd-breakdown">
+                                Phòng @(Convert.ToDecimal(r["TienPhong"]).ToString("N0")) · Điện @(Convert.ToDecimal(r["TienDien"]).ToString("N0")) · Nước @(Convert.ToDecimal(r["TienNuoc"]).ToString("N0"))
+                            </div>
+                        </td>
+                        <td class="thd-col-han text-nowrap">
+                            <span class="badge rounded-pill text-bg-light border">
+                                <i class="bi bi-calendar-event me-1"></i>@(Convert.ToDateTime(r["HanThanhToan"]).ToString("dd/MM/yyyy"))
+                            </span>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <form method="post" asp-action="HuyHoaDonNhap" class="d-inline"
+                                  data-confirm-title="Hủy hóa đơn nháp" data-confirm-level="danger"
+                                  data-confirm-message="Hủy hóa đơn nháp #@r["MaHD"]? Chỉ số điện/nước phòng @r["MaPhong"] sẽ được mở lại để sửa.">
+                                <input type="hidden" name="maHD" value="@r["MaHD"]" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Hủy</button>
+                            </form>
                             <form method="post" asp-action="GuiHoaDon" class="d-inline"
                                   data-confirm-title="Gửi hóa đơn" data-confirm-level="warning"
                                   data-confirm-message="Gửi hóa đơn này? Hệ thống sẽ thông báo tới toàn bộ sinh viên trong phòng.">
                                 <input type="hidden" name="maHD" value="@r["MaHD"]" />
-                                <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-send me-1"></i>Xác nhận gửi</button>
+                                <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-send me-1"></i>Gửi</button>
                             </form>
                         </td>
                     </tr>
@@ -149,3 +244,35 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const chonTatCa = document.getElementById('chonTatCa');
+            const chkList = Array.from(document.querySelectorAll('.chk-hd'));
+            const nhan = document.getElementById('thdDaChon');
+            const btnGui = document.getElementById('btnGuiHangLoat');
+            const btnHuy = document.getElementById('btnHuyHangLoat');
+            if (!chonTatCa || chkList.length === 0) return;
+
+            function capNhat() {
+                const daChon = chkList.filter(c => c.checked);
+                const tongTien = daChon.reduce((s, c) => s + Number(c.dataset.tien || 0), 0);
+                nhan.textContent = daChon.length === 0
+                    ? 'Chưa chọn hóa đơn nào'
+                    : `Đã chọn ${daChon.length} hóa đơn - tổng ${tongTien.toLocaleString('vi-VN')}đ`;
+                btnGui.disabled = daChon.length === 0;
+                btnHuy.disabled = daChon.length === 0;
+                chonTatCa.checked = daChon.length === chkList.length;
+                chonTatCa.indeterminate = daChon.length > 0 && daChon.length < chkList.length;
+            }
+
+            chonTatCa.addEventListener('change', function () {
+                chkList.forEach(c => c.checked = chonTatCa.checked);
+                capNhat();
+            });
+            chkList.forEach(c => c.addEventListener('change', capNhat));
+            capNhat();
+        })();
+    </script>
+}

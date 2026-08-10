@@ -1,0 +1,24 @@
+@using System.Data
+@model DataTable
+@*
+    Banner nhắc nhở hạn thanh toán (QD07) - mỗi hóa đơn Chờ thanh toán sắp đến hạn
+    (đã gửi email nhắc nhở) hiển thị 1 banner. Dùng ở SinhVien/TongQuan.cshtml.
+    Model: ViewBag.NhacNhoHanThanhToan.
+    Lưu ý: partial này render HTML trong NỘI DUNG trang, không được gọi bên trong @section Styles.
+*@
+@if (Model != null)
+{
+    @foreach (DataRow nn in Model.Rows)
+    {
+        <div class="tb-banner tb-banner-canhbao">
+            <div class="tb-banner-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+            <div class="tb-banner-body">
+                <div class="tb-banner-title">Nhắc nhở: hóa đơn tháng @nn["Thang"] phòng @nn["MaPhong"] sắp đến hạn thanh toán</div>
+                <div class="tb-banner-sub">
+                    Số tiền <b>@(Convert.ToDecimal(nn["TongTien"]).ToString("N0"))đ</b> · Hạn thanh toán <b>@(Convert.ToDateTime(nn["HanThanhToan"]).ToString("dd/MM/yyyy"))</b> - đã gửi email nhắc nhở, vui lòng thanh toán sớm để tránh bị khóa quyền dịch vụ hoặc ghi vi phạm.
+                </div>
+            </div>
+            <a asp-controller="SinhVien" asp-action="ChiTietHoaDon" asp-route-id="@nn["MaHD"]" class="btn btn-dm tb-banner-btn">Thanh toán ngay</a>
+        </div>
+    }
+}

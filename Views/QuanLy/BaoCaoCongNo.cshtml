@@ -1,7 +1,10 @@
 @using System.Data
+@using DormManager.Helpers
 @{
     ViewData["Title"] = "Báo cáo công nợ sinh viên";
     DataTable ds = ViewBag.DsCongNo;
+    var pager = (PagerViewModel)ViewBag.Pager;
+    int soThuTuBatDau = (pager.Trang - 1) * PagingHelper.KichThuocTrangMacDinh;
 }
 
 @* Báo cáo công nợ | View phức tạp -> style External *@
@@ -40,7 +43,7 @@
                     var r = ds.Rows[i];
                     int treNhat = r["SoNgayTreNhat"] != DBNull.Value ? Convert.ToInt32(r["SoNgayTreNhat"]) : 0;
                     <tr class="@(treNhat > 14 ? "row-urgent" : "")">
-                        <td>@(i + 1)</td>
+                        <td>@(soThuTuBatDau + i + 1)</td>
                         <td class="fw-semibold">@r["MSSV"]</td>
                         <td>@r["HoTen"]</td>
                         <td>@r["KhoaHoc"]</td>
@@ -71,5 +74,8 @@
                 }
             </tbody>
         </table>
+    </div>
+    <div class="px-3 pb-3">
+        @await Html.PartialAsync("_Pager", pager)
     </div>
 </div>
