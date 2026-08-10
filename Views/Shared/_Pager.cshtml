@@ -1,0 +1,52 @@
+@model DormManager.Helpers.PagerViewModel
+@{
+    int trang = Model.Trang;
+    int tongSoTrang = Model.TongSoTrang;
+    string? action = ViewContext.RouteData.Values["action"]?.ToString();
+
+    Dictionary<string, string?> RouteCho(int p)
+    {
+        var d = new Dictionary<string, string?>(Model.BaseRoute) { ["trang"] = p.ToString() };
+        return d;
+    }
+
+    int tu = Math.Max(1, trang - 2);
+    int den = Math.Min(tongSoTrang, trang + 2);
+}
+
+@if (tongSoTrang > 1)
+{
+    <nav aria-label="Phân trang" class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-2">
+        <span class="small text-muted">
+            Trang <b>@trang</b>/@tongSoTrang · @Model.TongSoDong dòng
+        </span>
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item @(trang <= 1 ? "disabled" : "")">
+                <a class="page-link" asp-action="@action" asp-all-route-data="@RouteCho(Math.Max(trang - 1, 1))"><i class="bi bi-chevron-left"></i></a>
+            </li>
+            @if (tu > 1)
+            {
+                <li class="page-item"><a class="page-link" asp-action="@action" asp-all-route-data="@RouteCho(1)">1</a></li>
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            }
+            @for (int p = tu; p <= den; p++)
+            {
+                <li class="page-item @(p == trang ? "active" : "")">
+                    <a class="page-link" asp-action="@action" asp-all-route-data="@RouteCho(p)">@p</a>
+                </li>
+            }
+            @if (den < tongSoTrang)
+            {
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                <li class="page-item"><a class="page-link" asp-action="@action" asp-all-route-data="@RouteCho(tongSoTrang)">@tongSoTrang</a></li>
+            }
+            <li class="page-item @(trang >= tongSoTrang ? "disabled" : "")">
+                <a class="page-link" asp-action="@action" asp-all-route-data="@RouteCho(Math.Min(trang + 1, tongSoTrang))"><i class="bi bi-chevron-right"></i></a>
+            </li>
+        </ul>
+    </nav>
+}
+else if (Model.TongSoDong > 0)
+{
+    <div class="small text-muted mt-3 pt-2">@Model.TongSoDong dòng</div>
+}

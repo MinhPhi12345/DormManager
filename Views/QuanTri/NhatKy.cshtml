@@ -1,9 +1,12 @@
 @using System.Data
+@using DormManager.Helpers
 @{
     ViewData["Title"] = "Nhật ký thao tác hệ thống";
     DataTable ds = ViewBag.DsNhatKy;
     DataTable doiTuongList = ViewBag.DsDoiTuong;
     var q = Context.Request.Query;
+    var pager = (PagerViewModel)ViewBag.Pager;
+    int soThuTuBatDau = (pager.Trang - 1) * PagingHelper.KichThuocTrangMacDinh;
 }
 
 @* Nhật ký hệ thống | View phức tạp -> style External *@
@@ -13,7 +16,7 @@
 
 <div class="alert alert-light border small mb-3">
     <i class="bi bi-info-circle me-1 text-dm"></i>
-    Ghi lại toàn bộ thao tác Thêm/Sửa/Xóa của Quản trị viên đối với Phòng, Tài khoản, Đơn giá điện/nước... để truy vết khi cần.
+    Ghi lại toàn bộ thao tác Thêm/Sửa/Xóa/Khóa/Mở khóa của Quản trị viên đối với Phòng, Tài khoản, Đợt đăng ký, Đơn giá điện/nước... để truy vết khi cần.
 </div>
 
 <div class="card mb-3">
@@ -26,6 +29,8 @@
                     <option value="Them" selected="@(q["hanhDong"] == "Them")">Thêm</option>
                     <option value="Sua" selected="@(q["hanhDong"] == "Sua")">Sửa</option>
                     <option value="Xoa" selected="@(q["hanhDong"] == "Xoa")">Xóa</option>
+                    <option value="Khoa" selected="@(q["hanhDong"] == "Khoa")">Khóa</option>
+                    <option value="MoKhoa" selected="@(q["hanhDong"] == "MoKhoa")">Mở khóa</option>
                 </select>
             </div>
             <div class="col-6 col-md-3">
@@ -38,10 +43,19 @@
                     }
                 </select>
             </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Từ ngày</label>
+                <input type="date" name="tuNgay" value="@ViewBag.TuNgay" class="form-control" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Đến ngày</label>
+                <input type="date" name="denNgay" value="@ViewBag.DenNgay" class="form-control" />
+            </div>
             <div class="col-12 col-md-2">
                 <button class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Lọc</button>
             </div>
         </form>
+        <div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Mặc định chỉ hiện 30 ngày gần nhất - xóa 2 ô ngày để xem tất cả (kết quả sẽ hiển thị theo trang).</div>
     </div>
 </div>
 
@@ -60,7 +74,7 @@
                 {
                     var r = ds.Rows[i];
                     <tr>
-                        <td>@(i + 1)</td>
+                        <td>@(soThuTuBatDau + i + 1)</td>
                         <td class="text-nowrap">@(Convert.ToDateTime(r["ThoiGian"]).ToString("HH:mm dd/MM/yyyy"))</td>
                         <td>@r["HoTenNguoiThucHien"] <span class="text-muted small">(@r["VaiTro"])</span></td>
                         <td>
@@ -71,6 +85,12 @@
                                     ; break;
                                 case "Sua":
                                     <span class="badge text-bg-warning">Sửa</span>
+                                    ; break;
+                                case "Khoa":
+                                    <span class="badge text-bg-secondary"><i class="bi bi-lock-fill me-1"></i>Khóa</span>
+                                    ; break;
+                                case "MoKhoa":
+                                    <span class="badge text-bg-info"><i class="bi bi-unlock-fill me-1"></i>Mở khóa</span>
                                     ; break;
                                 default:
                                     <span class="badge text-bg-danger">Xóa</span>
@@ -83,5 +103,8 @@
                 }
             </tbody>
         </table>
+    </div>
+    <div class="px-3 pb-3">
+        @await Html.PartialAsync("_Pager", pager)
     </div>
 </div>

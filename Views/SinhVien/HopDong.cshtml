@@ -1,27 +1,29 @@
 @using System.Data
 @{
-    ViewData["Title"] = "Hợp đồng đăng ký";
+    ViewData["Title"] = "Hợp đồng lưu trú";
     DataTable ds = ViewBag.DsHopDong;
+    int ts2 = ViewBag.TS2;
+    int ts13 = ViewBag.TS13;
+    bool congGiaHanDangMo = ViewBag.CongGiaHanDangMo;
+    bool laChinhSach = ViewBag.DoiTuong?.ToString() == "ChinhSach";
 }
 
-@* Hợp đồng + Gia hạn + Trả phòng | View đơn giản -> style Inline *@
+@* Hợp đồng + Gia hạn + Trả phòng | View phức tạp -> style External *@
 @section Styles {
-    <style>
-        .contract-card {
-            border-left: 4px solid #0d5c4d;
-        }
-
-            .contract-card.inactive {
-                border-left-color: #b9c2bd;
-                opacity: .8;
-            }
-
-        .contract-meta {
-            font-size: .875rem;
-            color: #5c6660;
-        }
-    </style>
+    <link rel="stylesheet" href="~/css/views/hopdong.css" />
 }
+
+<div class="hd-rule-box mb-3">
+    <div class="hd-rule-title"><i class="bi bi-journal-check"></i>Quy định gia hạn hợp đồng</div>
+    Mỗi lần gia hạn được cộng thêm tối đa <b>@ts2 tháng</b> (tương đương 1 học kỳ chính), và <b>chỉ áp dụng khi hợp đồng
+    còn tối đa @ts13 ngày là hết hạn</b> - nhằm tránh gia hạn dồn nhiều lần liên tiếp. Sinh viên diện chính sách
+    <b>không cần chờ đợt đăng ký đại trà/học kỳ hè mở cổng</b> mới được gia hạn, nhưng vẫn phải tuân thủ mốc
+    @ts13 ngày nói trên như mọi sinh viên khác.
+    @if (!congGiaHanDangMo && !laChinhSach)
+    {
+        <div class="mt-2"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Hiện <b>chưa có đợt Đại trà/Học kỳ hè nào đang mở cổng</b> - sinh viên thường sẽ tạm thời không gia hạn được cho đến khi có đợt mới, trừ diện chính sách.</div>
+    }
+</div>
 
 @if (ds.Rows.Count == 0)
 {
@@ -32,92 +34,148 @@
 {
     string tt = r["TrangThai"].ToString()!;
     bool dangO = tt == "DangO";
-    <div class="card contract-card @(dangO || tt == "ChoDoiChieu" ? "" : "inactive") mb-3">
-        <div class="card-body">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-                <div>
-                    <h3 class="h6 fw-bold mb-1">
-                        Hợp đồng #@r["MaPhieu"] - Phòng @r["MaPhong"] (@r["TenToa"]) - Giường @r["MaGiuong"]
-                    </h3>
-                    <div class="contract-meta">
-                        @r["TenDot"] · @r["HocKy"] · Đăng ký ngày @(Convert.ToDateTime(r["NgayDangKy"]).ToString("dd/MM/yyyy"))
-                    </div>
-                    <div class="contract-meta">
-                        Thời hạn: <b>@(Convert.ToDateTime(r["NgayBatDau"]).ToString("dd/MM/yyyy"))</b>
-                        → <b>@(Convert.ToDateTime(r["NgayKetThuc"]).ToString("dd/MM/yyyy"))</b>
-                        · Giá: @(Convert.ToDecimal(r["GiaPhong"]).ToString("N0"))đ/tháng
-                    </div>
+    DateTime ngayBatDau = Convert.ToDateTime(r["NgayBatDau"]);
+    DateTime ngayKetThuc = Convert.ToDateTime(r["NgayKetThuc"]);
+    int tongSoNgay = Math.Max((ngayKetThuc.Date - ngayBatDau.Date).Days, 1);
+    int soNgayConLai = (ngayKetThuc.Date - DateTime.Today).Days;
+    double phanTramDaQua = Math.Clamp((DateTime.Today - ngayBatDau.Date).Days * 100.0 / tongSoNgay, 0, 100);
+
+    string lopProgress = soNgayConLai < 0 ? "hd-progress-danger" : soNgayConLai <= ts13 ? "hd-progress-warn" : "";
+    string lopCountdown = soNgayConLai < 0 ? "hd-countdown-danger" : soNgayConLai <= ts13 ? "hd-countdown-warn" : "hd-countdown-ok";
+    string chuCountdown = soNgayConLai < 0 ? $"Đã hết hạn {-soNgayConLai} ngày" : soNgayConLai == 0 ? "Hết hạn hôm nay" : $"Còn {soNgayConLai} ngày";
+
+    bool duDieuKienNgay = soNgayConLai <= ts13;
+    bool coTheGiaHan = dangO && duDieuKienNgay && (laChinhSach || congGiaHanDangMo);
+
+    bool coDonTraPhongChoXL = r["MaDonTraPhongChoXL"] != DBNull.Value;
+    bool coDonChuyenPhongChoXL = r["MaDonChuyenPhongChoXL"] != DBNull.Value;
+
+    <div class="hd-card mb-3 @(dangO || tt == "ChoDoiChieu" ? "" : "hd-inactive")">
+        <div class="hd-card-top">
+            <div class="hd-so">
+                HỢP ĐỒNG LƯU TRÚ KÝ TÚC XÁ
+                <small>Số hiệu #@r["MaPhieu"] · @r["TenDot"] - Học kỳ @r["HocKy"]</small>
+            </div>
+            <span class="hd-status-ribbon">
+                @switch (tt)
+                {
+                    case "DangO":
+                        <i class="bi bi-patch-check-fill"></i> @:Đang hiệu lực
+                        break;
+                    case "ChoDoiChieu":
+                        <i class="bi bi-hourglass-split"></i> @:Chờ đối chiếu
+                        break;
+                    case "DaTraPhong":
+                        <i class="bi bi-box-arrow-left"></i> @:Đã trả phòng
+                        break;
+                    default:
+                        <i class="bi bi-x-octagon-fill"></i> @:Đã hủy
+                        break;
+                }
+            </span>
+        </div>
+
+        <div class="hd-card-body">
+            <div class="hd-info-grid">
+                <div class="hd-info-item">
+                    <div class="hd-label">Phòng / Tòa</div>
+                    <div class="hd-value">@r["MaPhong"] · @r["TenToa"]</div>
                 </div>
-                <div>
-                    @switch (tt)
-                    {
-                        case "DangO":
-                            <span class="badge text-bg-success">Đang ở</span>
-                            ; break;
-                        case "ChoDoiChieu":
-
-                            <span class="badge text-bg-warning">Chờ đối chiếu</span>
-                            ; break;
-                        case "DaTraPhong":
-
-                            <span class="badge text-bg-secondary">Đã trả phòng</span>
-                            ; break;
-                        default:
-
-                            <span class="badge text-bg-danger">Đã hủy</span>
-                            ; break;
-                    }
+                <div class="hd-info-item">
+                    <div class="hd-label">Giường</div>
+                    <div class="hd-value">@r["MaGiuong"]</div>
+                </div>
+                <div class="hd-info-item">
+                    <div class="hd-label">Giá phòng</div>
+                    <div class="hd-value">@(Convert.ToDecimal(r["GiaPhong"]).ToString("N0"))đ/tháng</div>
+                </div>
+                <div class="hd-info-item">
+                    <div class="hd-label">Ngày đăng ký</div>
+                    <div class="hd-value">@(Convert.ToDateTime(r["NgayDangKy"]).ToString("dd/MM/yyyy"))</div>
                 </div>
             </div>
 
+            <div class="hd-thoihan-head">
+                <div class="hd-thoihan-dates">
+                    <i class="bi bi-calendar-range me-1 text-dm"></i>Thời hạn:
+                    <b>@ngayBatDau.ToString("dd/MM/yyyy")</b> → <b>@ngayKetThuc.ToString("dd/MM/yyyy")</b>
+                </div>
+                @if (dangO)
+                {
+                    <span class="hd-countdown @lopCountdown">@chuCountdown</span>
+                }
+            </div>
             @if (dangO)
             {
-                <hr class="my-2" />
-                bool coDonTraPhongChoXL = r["MaDonTraPhongChoXL"] != DBNull.Value;
-                bool coDonChuyenPhongChoXL = r["MaDonChuyenPhongChoXL"] != DBNull.Value;
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <form method="post" asp-action="GiaHan" class="d-flex gap-2">
-                        <input type="hidden" name="maPhieu" value="@r["MaPhieu"]" />
-                        <select name="soThang" class="form-select form-select-sm" style="width:auto">
-                            <option value="1">1 tháng</option>
-                            <option value="2">2 tháng</option>
-                            <option value="3">3 tháng</option>
-                            <option value="5">5 tháng</option>
-                        </select>
-                        <button type="submit" class="btn btn-sm btn-dm"><i class="bi bi-arrow-repeat me-1"></i>Gia hạn lưu trú</button>
-                    </form>
-
-                    @if (coDonChuyenPhongChoXL)
-                    {
-                        <span class="badge text-bg-warning"><i class="bi bi-hourglass-split me-1"></i>Đang chờ Ban quản lý xác nhận chuyển phòng</span>
-                    }
-                    else if (!coDonTraPhongChoXL)
-                    {
-                        <a asp-action="ChuyenPhong" asp-route-maPhieu="@r["MaPhieu"]" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-arrow-left-right me-1"></i>Đăng ký chuyển phòng
-                        </a>
-                    }
-
-                    @if (coDonTraPhongChoXL)
-                    {
-                        <span class="badge text-bg-warning"><i class="bi bi-hourglass-split me-1"></i>Đang chờ Ban quản lý xác nhận trả phòng</span>
-                    }
-                    else if (!coDonChuyenPhongChoXL)
-                    {
-                        <form method="post" asp-action="TraPhong"
-                              data-confirm-title="Yêu cầu trả phòng" data-confirm-level="warning"
-                              data-confirm-message="Gửi yêu cầu trả phòng tới Ban quản lý? Bạn cần hoàn thành mọi nghĩa vụ tài chính trước khi được xác nhận.">
-                            <input type="hidden" name="maPhieu" value="@r["MaPhieu"]" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-box-arrow-left me-1"></i>Yêu cầu trả phòng</button>
-                        </form>
-                    }
+                <div class="hd-progress mb-1">
+                    <div class="hd-progress-bar @lopProgress" style="width:@(phanTramDaQua.ToString("0.#"))%"></div>
                 </div>
-                @if (ViewBag.DoiTuong?.ToString() == "ChinhSach")
-                {
- <div class="small text-muted mt-2"><i class="bi bi-star-fill text-warning me-1"></i>Bạn thuộc diện chính sách: được gia hạn bất kỳ lúc nào.</div>
-                }
             }
 
+            @if (laChinhSach)
+            {
+                <div class="hd-chinhsach-tag"><i class="bi bi-star-fill"></i>Diện chính sách - không cần chờ đợt mở cổng để gia hạn</div>
+            }
+
+            @if (dangO)
+            {
+                <div class="hd-actions">
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <form method="post" asp-action="GiaHan" class="d-flex gap-2">
+                            <input type="hidden" name="maPhieu" value="@r["MaPhieu"]" />
+                            <select name="soThang" class="form-select form-select-sm" style="width:auto" @(coTheGiaHan ? "" : "disabled")>
+                                @for (int i = 1; i <= ts2; i++)
+                                {
+                                    <option value="@i">@i tháng</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-dm" @(coTheGiaHan ? "" : "disabled")>
+                                <i class="bi bi-arrow-repeat me-1"></i>Gia hạn lưu trú
+                            </button>
+                        </form>
+
+                        @if (coDonChuyenPhongChoXL)
+                        {
+                            <span class="badge text-bg-warning"><i class="bi bi-hourglass-split me-1"></i>Đang chờ Ban quản lý xác nhận chuyển phòng</span>
+                        }
+                        else if (!coDonTraPhongChoXL)
+                        {
+                            <a asp-action="ChuyenPhong" asp-route-maPhieu="@r["MaPhieu"]" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-arrow-left-right me-1"></i>Đăng ký chuyển phòng
+                            </a>
+                        }
+
+                        @if (coDonTraPhongChoXL)
+                        {
+                            <span class="badge text-bg-warning"><i class="bi bi-hourglass-split me-1"></i>Đang chờ Ban quản lý xác nhận trả phòng</span>
+                        }
+                        else if (!coDonChuyenPhongChoXL)
+                        {
+                            <form method="post" asp-action="TraPhong"
+                                  data-confirm-title="Yêu cầu trả phòng" data-confirm-level="warning"
+                                  data-confirm-message="Gửi yêu cầu trả phòng tới Ban quản lý? Bạn cần hoàn thành mọi nghĩa vụ tài chính trước khi được xác nhận.">
+                                <input type="hidden" name="maPhieu" value="@r["MaPhieu"]" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-box-arrow-left me-1"></i>Yêu cầu trả phòng</button>
+                            </form>
+                        }
+                    </div>
+
+                    @if (!coTheGiaHan)
+                    {
+                        <div class="hd-eligible-note hd-note-warn">
+                            <i class="bi bi-info-circle-fill"></i>
+                            @if (!duDieuKienNgay)
+                            {
+                                @:Chưa thể gia hạn - hợp đồng còn @soNgayConLai ngày, chỉ được gia hạn khi còn tối đa @ts13 ngày là hết hạn.
+                            }
+                            else
+                            {
+                                @:Chưa thể gia hạn - cổng gia hạn (đợt Đại trà/Học kỳ hè) hiện đang đóng.
+                            }
+                        </div>
+                    }
+                </div>
+            }
         </div>
     </div>
 }

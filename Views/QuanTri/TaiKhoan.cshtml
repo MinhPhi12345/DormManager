@@ -205,9 +205,18 @@
                 <input type="hidden" name="maTK" id="suaTKMa" />
                 <input type="hidden" name="vaiTro" id="suaTKVaiTro" />
 
-                <div class="mb-3">
-                    <label class="form-label">Vai trò</label>
-                    <input type="text" id="suaTKVaiTroHienThi" class="form-control" disabled />
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label">Vai trò</label>
+                        <input type="text" id="suaTKVaiTroHienThi" class="form-control" disabled />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Trạng thái</label>
+                        <select name="trangThai" id="suaTKTrangThai" class="form-select">
+                            <option value="HoatDong">Hoạt động</option>
+                            <option value="BiKhoa">Bị khóa</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="row g-2 mb-3">
                     <div class="col-6">
@@ -287,6 +296,7 @@
             document.getElementById('suaTKTenDangNhap').value = b.dataset.ten;
             document.getElementById('suaTKVaiTroHienThi').value =
                 vaiTro === 'SV' ? 'Sinh viên' : vaiTro === 'QL' ? 'Quản lý' : 'Quản trị viên';
+            document.getElementById('suaTKTrangThai').value = b.dataset.tt;
             document.getElementById('suaTKEmail').value = b.dataset.email;
             document.getElementById('suaTKSdt').value = b.dataset.sdt;
             document.getElementById('suaTKHoTen').value = b.dataset.hoten;

@@ -1,0 +1,62 @@
+@using System.Data
+@model DataTable
+@*
+    Banner đợt đăng ký đang mở/không phù hợp/chưa có đợt nào.
+    Dùng chung cho SinhVien/TongQuan.cshtml và SinhVien/TraCuuPhong.cshtml.
+    Model: ViewBag.DsDotMo (bảng đợt đăng ký kèm cột PhuHop).
+    Lưu ý: partial này render HTML trong NỘI DUNG trang, không được gọi bên trong @section Styles.
+*@
+@{
+    DataRow? dotPhuHop = null, dotKhongPhuHop = null;
+    if (Model != null)
+    {
+        foreach (DataRow r in Model.Rows)
+        {
+            if (Convert.ToInt32(r["PhuHop"]) == 1) { dotPhuHop = r; break; }
+            else if (dotKhongPhuHop == null) { dotKhongPhuHop = r; }
+        }
+    }
+}
+
+@if (dotPhuHop != null)
+{
+    <div class="tb-banner tb-banner-mo">
+        <div class="tb-banner-icon"><i class="bi bi-calendar-check-fill"></i></div>
+        <div class="tb-banner-body">
+            <div class="tb-banner-title">
+                Đợt đăng ký đang mở: @dotPhuHop["TenDot"]
+                @if (dotPhuHop["LoaiDot"].ToString() == "UuTien")
+                {
+                    <span class="badge tb-badge-uutien ms-1">Ưu tiên - dành cho bạn</span>
+                }
+            </div>
+            <div class="tb-banner-sub">
+                Học kỳ @dotPhuHop["HocKy"] · Hạn đăng ký: <b>@(Convert.ToDateTime(dotPhuHop["NgayDong"]).ToString("HH:mm dd/MM/yyyy"))</b>
+            </div>
+        </div>
+        <a asp-controller="SinhVien" asp-action="TraCuuPhong" class="btn btn-dm tb-banner-btn">Đăng ký ngay</a>
+    </div>
+}
+else if (dotKhongPhuHop != null)
+{
+    <div class="tb-banner tb-banner-khongphuhop">
+        <div class="tb-banner-icon"><i class="bi bi-hourglass-split"></i></div>
+        <div class="tb-banner-body">
+            <div class="tb-banner-title">Đợt đăng ký ưu tiên tân sinh viên đang mở</div>
+            <div class="tb-banner-sub">
+                @dotKhongPhuHop["TenDot"] chỉ dành cho tân sinh viên. Vui lòng chờ đợt đại trà
+                (sau <b>@(Convert.ToDateTime(dotKhongPhuHop["NgayDong"]).ToString("dd/MM/yyyy"))</b>).
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="tb-banner tb-banner-dong">
+        <div class="tb-banner-icon"><i class="bi bi-calendar-x"></i></div>
+        <div class="tb-banner-body">
+            <div class="tb-banner-title">Hiện chưa có đợt đăng ký nào đang mở</div>
+            <div class="tb-banner-sub">Vui lòng theo dõi thông báo từ Ban quản lý KTX để biết lịch đăng ký tiếp theo.</div>
+        </div>
+    </div>
+}

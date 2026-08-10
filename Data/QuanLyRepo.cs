@@ -72,5 +72,10 @@ namespace DormManager.Data
         /// <summary>sp_BaoCaoCongNo: chi tiết công nợ từng sinh viên (tổng nợ, số ngày trễ nhất).</summary>
         public static DataTable BaoCaoCongNo() => Db.QueryProc("sp_BaoCaoCongNo");
 
+        /// <summary>sp_NguonNhacNhoHanThanhToan (QD07): danh sách hóa đơn Chờ thanh toán còn tối đa TS5
+        /// ngày là đến hạn và CHƯA từng được nhắc - dùng để C# lặp qua và gửi email thật (SP chỉ trả
+        /// candidate, không tự gửi được email).</summary>
+        public static DataTable NguonNhacNhoHanThanhToan(int ts5) => Db.QueryProc("sp_NguonNhacNhoHanThanhToan", Db.P("@TS5", ts5));
+
     }
 }

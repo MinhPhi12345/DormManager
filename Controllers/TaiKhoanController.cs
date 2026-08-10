@@ -1,11 +1,19 @@
-using System.Data;
+using DormManager.Data;
 using DormManager.Helpers;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DormManager.Controllers
 {
     public class TaiKhoanController : Controller
     {
+        private readonly AppDbContext _db;
+
+        public TaiKhoanController(AppDbContext db)
+        {
+            _db = db;
+        }
+
         // ============ Đăng nhập ============
         [HttpGet]
         public IActionResult DangNhap()
@@ -16,7 +24,7 @@ namespace DormManager.Controllers
         }
 
         [HttpPost]
-        public IActionResult DangNhap(string tenDangNhap, string matKhau)
+        public async Task<IActionResult> DangNhap(string tenDangNhap, string matKhau)
         {
             if (string.IsNullOrWhiteSpace(tenDangNhap) || string.IsNullOrWhiteSpace(matKhau))
             {
@@ -24,48 +32,44 @@ namespace DormManager.Controllers
                 return View();
             }
 
-            var dt = Db.Query(@"SELECT MaTK, TenDangNhap, MatKhau, VaiTro, TrangThai
-    FROM TAIKHOAN
-    WHERE TenDangNhap = @TenDangNhap OR Email = @TenDangNhap;",
-                Db.P("@TenDangNhap", tenDangNhap.Trim()));
+            string tdn = tenDangNhap.Trim();
+            var taiKhoan = await _db.TaiKhoans
+                .FirstOrDefaultAsync(t => t.TenDangNhap == tdn || t.Email == tdn);
 
-            if (dt.Rows.Count == 0 || dt.Rows[0]["MatKhau"].ToString() != AuthHelper.Sha256(matKhau))
+            if (taiKhoan == null || taiKhoan.MatKhau != AuthHelper.Sha256(matKhau))
             {
                 ViewBag.Loi = "Tên đăng nhập hoặc mật khẩu không đúng.";
                 return View();
             }
 
-            var row = dt.Rows[0];
-            bool biKhoa = row["TrangThai"].ToString() == "BiKhoa";
+            bool biKhoa = taiKhoan.TrangThai == "BiKhoa";
             // QD05: quá hạn thanh toán chỉ khóa quyền đăng ký dịch vụ tiện ích phát sinh,
             // KHÔNG khóa đăng nhập - để SV vẫn vào được để tự thanh toán nợ và gỡ khóa.
             // (Quản lý vẫn có thể khóa hẳn tài khoản qua "Cập nhật tài khoản" nếu cần, đó là
             // trường hợp khác, không phải cờ BiKhoa tự động do quá hạn.)
 
-            int maTK = (int)row["MaTK"];
-            string vaiTro = row["VaiTro"].ToString()!;
-            HttpContext.Session.SetInt32("MaTK", maTK);
-            HttpContext.Session.SetString("VaiTro", vaiTro);
-            HttpContext.Session.SetString("TenDangNhap", row["TenDangNhap"].ToString()!);
+            HttpContext.Session.SetInt32("MaTK", taiKhoan.MaTK);
+            HttpContext.Session.SetString("VaiTro", taiKhoan.VaiTro);
+            HttpContext.Session.SetString("TenDangNhap", taiKhoan.TenDangNhap);
             HttpContext.Session.SetString("BiKhoa", biKhoa ? "1" : "0");
 
             // Lấy họ tên + mã định danh theo vai trò
-            if (vaiTro == "SV")
+            if (taiKhoan.VaiTro == "SV")
             {
-                var sv = Db.Query(@"SELECT MSSV, HoTen FROM SINHVIEN WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK));
-                if (sv.Rows.Count > 0)
+                var sv = await _db.SinhViens.FirstOrDefaultAsync(x => x.MaTK == taiKhoan.MaTK);
+                if (sv != null)
                 {
-                    HttpContext.Session.SetString("MSSV", sv.Rows[0]["MSSV"].ToString()!);
-                    HttpContext.Session.SetString("HoTen", sv.Rows[0]["HoTen"].ToString()!);
+                    HttpContext.Session.SetString("MSSV", sv.MSSV);
+                    HttpContext.Session.SetString("HoTen", sv.HoTen);
                 }
             }
-            else if (vaiTro == "QL")
+            else if (taiKhoan.VaiTro == "QL")
             {
-                var ql = Db.Query(@"SELECT MaNV, HoTen FROM QUANLY WHERE MaTK = @MaTK;", Db.P("@MaTK", maTK));
-                if (ql.Rows.Count > 0)
+                var ql = await _db.QuanLys.FirstOrDefaultAsync(x => x.MaTK == taiKhoan.MaTK);
+                if (ql != null)
                 {
-                    HttpContext.Session.SetString("MaNV", ql.Rows[0]["MaNV"].ToString()!);
-                    HttpContext.Session.SetString("HoTen", ql.Rows[0]["HoTen"].ToString()!);
+                    HttpContext.Session.SetString("MaNV", ql.MaNV);
+                    HttpContext.Session.SetString("HoTen", ql.HoTen);
                 }
             }
             else
@@ -73,7 +77,7 @@ namespace DormManager.Controllers
                 HttpContext.Session.SetString("HoTen", "Quản trị viên");
             }
 
-            return ChuyenTrangTheoVaiTro(vaiTro);
+            return ChuyenTrangTheoVaiTro(taiKhoan.VaiTro);
         }
 
         private IActionResult ChuyenTrangTheoVaiTro(string vaiTro) => vaiTro switch
@@ -89,10 +93,11 @@ namespace DormManager.Controllers
         public IActionResult QuenMatKhau() => View();
 
         [HttpPost]
-        public IActionResult QuenMatKhau(string hoTen, string email)
+        public async Task<IActionResult> QuenMatKhau(string hoTen, string email)
         {
-            var dt = Db.Query(@"SELECT MaTK FROM TAIKHOAN WHERE Email = @Email;", Db.P("@Email", (email ?? "").Trim()));
-            if (dt.Rows.Count == 0)
+            string emailChuan = (email ?? "").Trim();
+            bool tonTai = await _db.TaiKhoans.AnyAsync(t => t.Email == emailChuan);
+            if (!tonTai)
             {
                 ViewBag.Loi = "Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại email được cấp.";
                 return View();
@@ -116,7 +121,7 @@ namespace DormManager.Controllers
         }
 
         [HttpPost]
-        public IActionResult DoiMatKhau(string matKhauCu, string matKhauMoi, string xacNhanMatKhau)
+        public async Task<IActionResult> DoiMatKhau(string matKhauCu, string matKhauMoi, string xacNhanMatKhau)
         {
             if (HttpContext.Session.GetInt32("MaTK") == null)
             {
@@ -141,23 +146,20 @@ namespace DormManager.Controllers
                 return View();
             }
 
-            int maTK = HttpContext.Session.GetInt32("MaTK").Value;
+            int maTK = HttpContext.Session.GetInt32("MaTK")!.Value;
             string mkCuHash = AuthHelper.Sha256(matKhauCu);
 
             // Kiểm tra mật khẩu cũ
-            var dt = Db.Query("SELECT MaTK FROM TAIKHOAN WHERE MaTK = @MaTK AND MatKhau = @MatKhau",
-                Db.P("@MaTK", maTK), Db.P("@MatKhau", mkCuHash));
-
-            if (dt.Rows.Count == 0)
+            var taiKhoan = await _db.TaiKhoans.FirstOrDefaultAsync(t => t.MaTK == maTK && t.MatKhau == mkCuHash);
+            if (taiKhoan == null)
             {
                 ViewBag.Loi = "Mật khẩu hiện tại không chính xác.";
                 return View();
             }
 
             // Mã hóa mật khẩu mới và lưu vào CSDL
-            string mkMoiHash = AuthHelper.Sha256(matKhauMoi);
-            Db.Exec("UPDATE TAIKHOAN SET MatKhau = @MatKhauMoi WHERE MaTK = @MaTK",
-                Db.P("@MatKhauMoi", mkMoiHash), Db.P("@MaTK", maTK));
+            taiKhoan.MatKhau = AuthHelper.Sha256(matKhauMoi);
+            await _db.SaveChangesAsync();
 
             TempData["ThanhCong"] = "Đổi mật khẩu thành công!";
             return RedirectToAction("DoiMatKhau");

@@ -9,63 +9,11 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/views/tracuuphong.css" />
     <link rel="stylesheet" href="~/css/banner.css" />
-
-    @{
-        DataTable dsDotMo = ViewBag.DsDotMo;
-        DataRow? dotPhuHop = null, dotKhongPhuHop = null;
-        if (dsDotMo != null)
-        {
-            foreach (DataRow r in dsDotMo.Rows)
-            {
-                if (Convert.ToInt32(r["PhuHop"]) == 1) { dotPhuHop = r; break; }
-                else if (dotKhongPhuHop == null) { dotKhongPhuHop = r; }
-            }
-        }
-    }
-
-    @if (dotPhuHop != null)
-    {
-        <div class="dot-banner dot-banner-mo">
-            <div class="dot-banner-icon"><i class="bi bi-calendar-check-fill"></i></div>
-            <div class="dot-banner-body">
-                <div class="dot-banner-title">
-                    Đợt đăng ký đang mở: @dotPhuHop["TenDot"]
-                    @if (dotPhuHop["LoaiDot"].ToString() == "UuTien")
-                    {
-                        <span class="badge dot-badge-uutien ms-1">Ưu tiên - dành cho bạn</span>
-                    }
-                </div>
-                <div class="dot-banner-sub">
-                    Học kỳ @dotPhuHop["HocKy"] · Hạn đăng ký: <b>@(Convert.ToDateTime(dotPhuHop["NgayDong"]).ToString("HH:mm dd/MM/yyyy"))</b>
-                </div>
-            </div>
-            <a asp-controller="SinhVien" asp-action="TraCuuPhong" class="btn btn-dm dot-banner-btn">Đăng ký ngay</a>
-        </div>
-    }
-    else if (dotKhongPhuHop != null)
-    {
-        <div class="dot-banner dot-banner-khongphuhop">
-            <div class="dot-banner-icon"><i class="bi bi-hourglass-split"></i></div>
-            <div class="dot-banner-body">
-                <div class="dot-banner-title">Đợt đăng ký ưu tiên tân sinh viên đang mở</div>
-                <div class="dot-banner-sub">
-                    @dotKhongPhuHop["TenDot"] chỉ dành cho tân sinh viên. Vui lòng chờ đợt đại trà
-                    (sau <b>@(Convert.ToDateTime(dotKhongPhuHop["NgayDong"]).ToString("dd/MM/yyyy"))</b>).
-                </div>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="dot-banner dot-banner-dong">
-            <div class="dot-banner-icon"><i class="bi bi-calendar-x"></i></div>
-            <div class="dot-banner-body">
-                <div class="dot-banner-title">Hiện chưa có đợt đăng ký nào đang mở</div>
-                <div class="dot-banner-sub">Vui lòng theo dõi thông báo từ Ban quản lý KTX để biết lịch đăng ký tiếp theo.</div>
-            </div>
-        </div>
-    }
 }
+
+<div class="tb-banner-stack">
+    @await Html.PartialAsync("_DotBanner", (DataTable)ViewBag.DsDotMo)
+</div>
 
 @if ((bool)ViewBag.LaChinhSach)
 {

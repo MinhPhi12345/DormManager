@@ -21,7 +21,7 @@
             </div>
             <div class="col-6 col-md-3">
                 <label class="form-label small mb-1">Tháng (MM/yyyy)</label>
-                <input type="text" name="thang" value="@q["thang"]" class="form-control" placeholder="VD: 06/2026" />
+                <input type="text" name="thang" value="@ViewBag.Thang" class="form-control" placeholder="VD: 06/2026" />
             </div>
             <div class="col-6 col-md-3">
                 <label class="form-label small mb-1">Trạng thái</label>
@@ -36,6 +36,7 @@
                 <button class="btn btn-dm w-100"><i class="bi bi-search me-1"></i>Tra cứu</button>
             </div>
         </form>
+        <div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Mặc định chỉ hiện hóa đơn tháng hiện tại - xóa ô Tháng để xem tất cả (kết quả sẽ hiển thị theo trang).</div>
     </div>
 </div>
 
@@ -82,5 +83,8 @@
                 }
             </tbody>
         </table>
+    </div>
+    <div class="px-3 pb-3">
+        @await Html.PartialAsync("_Pager", (DormManager.Helpers.PagerViewModel)ViewBag.Pager)
     </div>
 </div>
