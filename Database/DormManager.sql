@@ -399,8 +399,11 @@ INSERT INTO CHISODIENNUOC (MaPhong, Thang, DienDauKy, DienCuoiKy, NuocDauKy, Nuo
 ('A1-202', FORMAT(GETDATE(), 'MM/yyyy'), 500.0, 560.0, 120.0, 130.0, 'Nhap');
 
 -- Hóa đơn cho 8 tháng lịch sử đã chốt (tháng hiện tại chưa có hóa đơn - đúng ý đồ demo):
--- tháng gần nhất nhất -> QuaHan (đã quá hạn > TS4=14 ngày, phát sinh vi phạm),
--- tháng kế -> ChoThanhToan (chưa tới hạn), các tháng còn lại -> DaThanhToan.
+-- tháng gần nhất (n=1) -> ChoThanhToan, hạn còn 2 ngày (trong hạn TS5=3 ngày -> demo banner nhắc nhở QD07),
+-- tháng kế (n=2, xa hơn) -> QuaHan (đã quá hạn > TS4=14 ngày, phát sinh vi phạm),
+-- các tháng còn lại -> DaThanhToan.
+-- Lưu ý thứ tự thời gian: tháng càng xa hiện tại thì ngày phát hành/hạn thanh toán càng phải
+-- lùi xa hơn về quá khứ (không được để hóa đơn tháng xa hơn lại có hạn "trẻ" hơn hóa đơn tháng gần).
 -- TienPhong giả định sĩ số hiện tại ổn định trong suốt lịch sử để đơn giản hoá dữ liệu mẫu.
 ;WITH Nums9 AS (
     SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
@@ -416,13 +419,13 @@ SELECT
     CASE cs.MaPhong WHEN 'A1-201' THEN 920000 ELSE 670000 END
         + (cs.DienCuoiKy - cs.DienDauKy) * dg.GiaDien
         + (cs.NuocCuoiKy - cs.NuocDauKy) * dg.GiaNuoc,
-    CASE WHEN n.n = 1 THEN DATEADD(DAY,-35,GETDATE())
-         WHEN n.n = 2 THEN GETDATE()
+    CASE WHEN n.n = 1 THEN DATEADD(DAY,-13,GETDATE())
+         WHEN n.n = 2 THEN DATEADD(DAY,-35,GETDATE())
          ELSE DATEADD(MONTH,-n.n, DATEADD(DAY,-15,GETDATE())) END,
-    CASE WHEN n.n = 1 THEN DATEADD(DAY,-20,GETDATE())
-         WHEN n.n = 2 THEN DATEADD(DAY, 2,GETDATE())   -- trong hạn TS5=3 ngày -> demo ngay banner nhắc nhở (QD07)
+    CASE WHEN n.n = 1 THEN DATEADD(DAY, 2,GETDATE())   -- trong hạn TS5=3 ngày -> demo ngay banner nhắc nhở (QD07)
+         WHEN n.n = 2 THEN DATEADD(DAY,-20,GETDATE())  -- quá hạn > TS4=14 ngày -> demo vi phạm
          ELSE DATEADD(MONTH,-n.n, DATEADD(DAY,15,GETDATE())) END,
-    CASE WHEN n.n = 1 THEN 'QuaHan' WHEN n.n = 2 THEN 'ChoThanhToan' ELSE 'DaThanhToan' END
+    CASE WHEN n.n = 1 THEN 'ChoThanhToan' WHEN n.n = 2 THEN 'QuaHan' ELSE 'DaThanhToan' END
 FROM CHISODIENNUOC cs
 CROSS JOIN DonGiaHL dg
 JOIN Nums9 n ON FORMAT(DATEADD(MONTH, -n.n, GETDATE()), 'MM/yyyy') = cs.Thang
@@ -477,8 +480,8 @@ INSERT INTO DONYEUCAU (MSSV, MaNV, MaPhieu, MaGiuongMoi, LoaiDon, TieuDe, NoiDun
 -- Lịch sử thông báo: 1 thông báo/hóa đơn lịch sử gửi cho SV đang ở phòng đó (đủ nhiều dòng để
 -- kiểm thử phân trang + bộ lọc mặc định 30 ngày). Chỉ có kênh Email (QD12 chỉ yêu cầu gửi qua
 -- email; hệ thống hiện chỉ gửi email thật qua SMTP) và gắn với đúng nghiệp vụ THẬT đang có
--- (gửi hóa đơn hàng tháng) - không tự tạo thông báo "nhắc nhở" vì hệ thống chưa có job/tính
--- năng nào tự động nhắc nhở (QD07/TS5 chưa cài đặt trong phạm vi đồ án).
+-- (gửi hóa đơn hàng tháng) - không tự tạo sẵn thông báo "nhắc nhở" ở đây vì QD07/TS5 được job quét
+-- tự sinh khi sinh viên mở trang Tổng quan (banner + email thật), không cần chèn sẵn trong seed data.
 INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
 SELECT sv.MSSV, h.MaHD,
     N'Hóa đơn tháng ' + h.Thang + N' phòng ' + h.MaPhong + N': ' + FORMAT(h.TongTien,'N0') + N'đ. Hạn thanh toán ' + FORMAT(h.HanThanhToan,'dd/MM/yyyy') + N'.',
