@@ -284,7 +284,9 @@ INSERT INTO THAMSO (MaThamSo, GiaTri, GhiChu) VALUES
 ('TS12','10',N'Ngày cuối trong tháng còn tính tiền phòng nếu dọn vào - dọn vào từ ngày này trở về trước vẫn tính tiền phòng tháng đó, dọn vào sau ngày này được miễn, tính từ tháng kế tiếp'),
 ('TS13','30',N'Số ngày trước khi hợp đồng hết hạn thì sinh viên mới được phép gia hạn (tránh gia hạn chồng chất nhiều lần cùng lúc)');
 
--- Tài khoản (thêm ql03 và 27DH113351 đã ở trạng thái BiKhoa sẵn để demo chức năng Mở khóa của admin)
+-- Tài khoản (ql03 và 25DH113345 đã ở trạng thái BiKhoa sẵn để demo chức năng Mở khóa của admin).
+-- 25DH113345 bị khóa có lý do thật: hóa đơn tháng trước nữa của phòng A1-201 đã quá hạn > TS3=7 ngày (QD05),
+-- xem phần HOADON bên dưới. 27DH113351 là tân sinh viên K2027 hoạt động bình thường (dùng cho đợt Ưu tiên).
 INSERT INTO TAIKHOAN (TenDangNhap, MatKhau, Email, SDT, VaiTro, TrangThai) VALUES
 ('admin',       @mk, 'admin@ktx.edu.vn',            '0900000001', 'QTV', 'HoatDong'),
 ('ql01',        @mk, 'ql01@ktx.edu.vn',             '0900000002', 'QL',  'HoatDong'),
@@ -292,12 +294,12 @@ INSERT INTO TAIKHOAN (TenDangNhap, MatKhau, Email, SDT, VaiTro, TrangThai) VALUE
 ('ql03',        @mk, 'ql03@ktx.edu.vn',             '0900000004', 'QL',  'BiKhoa'),
 ('24DH113343',  @mk, '24dh113343@st.huflit.edu.vn', '0911000005', 'SV',  'HoatDong'),
 ('25DH113344',  @mk, '25dh113344@st.huflit.edu.vn', '0911000003', 'SV',  'HoatDong'),
-('25DH113345',  @mk, '25dh113345@st.huflit.edu.vn', '0911000004', 'SV',  'HoatDong'),
+('25DH113345',  @mk, '25dh113345@st.huflit.edu.vn', '0911000004', 'SV',  'BiKhoa'),
 ('26DH113346',  @mk, '26dh113346@st.huflit.edu.vn', '0911000001', 'SV',  'HoatDong'),
 ('26DH113347',  @mk, '26dh113347@st.huflit.edu.vn', '0911000002', 'SV',  'HoatDong'),
 ('26DH113349',  @mk, '26dh113349@st.huflit.edu.vn', '0911000006', 'SV',  'HoatDong'),
 ('26DH113350',  @mk, '26dh113350@st.huflit.edu.vn', '0911000007', 'SV',  'HoatDong'),
-('27DH113351',  @mk, '27dh113351@st.huflit.edu.vn', '0911000008', 'SV',  'BiKhoa');
+('27DH113351',  @mk, '27dh113351@st.huflit.edu.vn', '0911000008', 'SV',  'HoatDong');
 
 -- Tòa nhà
 INSERT INTO TOANHA (MaToa, TenToa, DiaChi, SoTang) VALUES
@@ -311,7 +313,7 @@ INSERT INTO QUANLY (MaNV, MaTK, HoTen, MaToa) VALUES
 ('NV003', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='ql03'), N'Hồ Văn Khóa',   'B1');   -- tài khoản đang Bị khóa
 
 -- Sinh viên (thêm 26DH113349 - diện chính sách đang ở, 26DH113350 - thường mới dọn vào,
--- 27DH113351 - tài khoản mới tạo nhưng đã bị khóa, chưa có hợp đồng)
+-- 27DH113351 - tân sinh viên K2027, hoạt động, chưa có hợp đồng)
 INSERT INTO SINHVIEN (MSSV, MaTK, HoTen, NgaySinh, GioiTinh, KhoaHoc, DoiTuong) VALUES
 ('24DH113343', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='24DH113343'), N'Đặng Hoàng Minh Phi', '2006-04-07', 'Nam', 'K2024', 'BinhThuong'),
 ('25DH113344', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='25DH113344'), N'Võ Quốc Dũng',         '2007-01-10', 'Nam', 'K2025', 'BinhThuong'),
@@ -519,7 +521,7 @@ FROM NumsNK;
 -- Vài dòng nhật ký "thật" gắn với đúng tình huống trong dữ liệu mẫu (tài khoản đang bị khóa ở trên)
 INSERT INTO NHATKY (MaTK, HoTenNguoiThucHien, VaiTro, HanhDong, DoiTuong, NoiDung, ThoiGian) VALUES
 ((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Khoa', N'Tài khoản', N'Khóa tài khoản quản lý ql03 do vi phạm quy trình xử lý đơn từ - chờ xác minh.', DATEADD(DAY,-4,GETDATE())),
-((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Khoa', N'Tài khoản', N'Khóa tài khoản sinh viên 27DH113351 do phát hiện thông tin đăng ký chưa xác thực.', DATEADD(DAY,-2,GETDATE())),
+((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Khoa', N'Tài khoản', N'Khóa quyền đăng ký dịch vụ của sinh viên 25DH113345 do hóa đơn phòng A1-201 quá hạn thanh toán trên 7 ngày (QD05).', DATEADD(DAY,-2,GETDATE())),
 ((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Sua', N'Đơn giá điện/nước', N'Cập nhật biểu giá điện/nước áp dụng từ 01/01/2026.', DATEADD(DAY,-40,GETDATE())),
 ((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Them', N'Phòng', N'Thêm phòng A1-301 (8 giường) vào tòa A1.', DATEADD(DAY,-50,GETDATE()));
 GO
@@ -527,6 +529,6 @@ GO
 PRINT N'>>> Tạo CSDL DormManager thành công! Mật khẩu mọi tài khoản: 123456';
 PRINT N'>>> QTV: admin';
 PRINT N'>>> QL: ql01, ql02 (hoạt động) | ql03 (đang Bị khóa - demo Mở khóa)';
-PRINT N'>>> SV đang ở: 25DH113344, 25DH113345, 24DH113343 (sắp hết hạn - được Gia hạn) | 26DH113349 (chính sách), 26DH113350 (thường) (mới ở - Gia hạn bị chặn)';
-PRINT N'>>> SV khác: 26DH113346 (chờ đối chiếu) | 26DH113347 (chính sách, đã trả phòng) | 27DH113351 (đang Bị khóa - demo Mở khóa)';
+PRINT N'>>> SV đang ở: 25DH113344, 24DH113343 (sắp hết hạn - được Gia hạn) | 25DH113345 (đang Bị khóa do hóa đơn quá hạn - demo Mở khóa) | 26DH113349 (chính sách), 26DH113350 (thường) (mới ở - Gia hạn bị chặn)';
+PRINT N'>>> SV khác: 26DH113346 (chờ đối chiếu) | 26DH113347 (chính sách, đã trả phòng) | 27DH113351 (tân sinh viên K2027, chưa có hợp đồng)';
 GO
