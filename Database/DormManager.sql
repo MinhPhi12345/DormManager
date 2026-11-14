@@ -237,36 +237,56 @@ CREATE TABLE NHATKY (
 GO
 
 /* =====================================================================
-   DỮ LIỆU MẪU
+   DỮ LIỆU MẪU (bản chuẩn hóa 15/10/2026)
    Mật khẩu mặc định của MỌI tài khoản là: 123456
    (SHA-256 = 8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92)
 
-   Toàn bộ ngày tháng dưới đây tính TƯƠNG ĐỐI theo GETDATE() (không ghi cứng
-   ngày cụ thể) để dữ liệu luôn hợp lệ và đủ điều kiện demo MỌI nghiệp vụ hiện
-   có (đăng ký/chuyển phòng/gia hạn/hóa đơn/khóa-mở khóa/nhật ký...) bất kể
-   script này được chạy vào thời điểm nào. Các bảng có khối lượng dữ liệu lớn
-   (Nhật ký, Hóa đơn, Lịch sử thông báo) được sinh theo tập hợp để đủ nhiều
-   dòng kiểm thử phân trang và bộ lọc mặc định theo thời gian.
+   Nguyên tắc của bộ dữ liệu này:
+   - Mọi ngày tháng tính TƯƠNG ĐỐI theo GETDATE() để dữ liệu luôn hợp lệ dù
+     chạy script vào thời điểm nào.
+   - Dữ liệu nhất quán với nghiệp vụ và với cách ứng dụng tự sinh dữ liệu:
+     + Hợp đồng chỉ thuộc đợt đăng ký đang mở tại ngày đăng ký; thời hạn theo
+       TS2/TS10, hợp đồng dài hơn TS2 tháng là do đã gia hạn (có thông báo gia hạn).
+     + Trạng thái giường và số giường trống khớp với hợp đồng (SoGiuongTrong =
+       số giường Trống, giường bảo trì không tính là trống).
+     + Chỉ số điện/nước cộng dồn (chỉ số đầu kỳ tháng này = chỉ số cuối kỳ tháng
+       trước), chỉ có ở những tháng phòng có người ở.
+     + Hóa đơn tính đúng công thức của ứng dụng: TienPhong = GiaPhong x số người
+       dọn vào trước/đúng ngày TS12 + PhiDichVu; TienDien = kWh x GiaDien;
+       TienNuoc = m3 x GiaNuoc; đơn giá lấy theo biểu giá hiệu lực của tháng.
+     + Chỉ người ở trong tháng mới nhận thông báo/thanh toán hóa đơn tháng đó.
+     + Khóa tài khoản (QD05), vi phạm lũy tiến (QD06) và nhắc hạn (QD07) chỉ
+       xuất hiện khi có hóa đơn tương ứng; DiemViPham = tổng SoDiem trong VIPHAM.
+     + Đơn trả/chuyển phòng có tiêu đề, nội dung, mức ưu tiên giống hệt đơn do
+       ứng dụng tạo, và chỉ tồn tại khi sinh viên đủ điều kiện gửi đơn.
    ===================================================================== */
 DECLARE @mk    VARCHAR(255) = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
 DECLARE @Today DATE = CAST(GETDATE() AS DATE);
 
--- Đợt đăng ký: 1 đã đóng (ưu tiên), 1 đang mở (đại trà), 1 đã đóng lâu (hè cũ), 1 chưa mở (dự kiến)
+-- Đợt đăng ký (theo thứ tự thời gian):
+--   HK2-2025 đại trà (đã đóng lâu) -> Học kỳ hè (đã đóng) -> Ưu tiên HK1 (đã đóng)
+--   -> Đại trà HK1 (ĐANG MỞ) -> Đại trà HK2 (dự kiến, chưa mở)
+DECLARE @DTc_Mo DATE = DATEADD(DAY,-300,@Today), @DTc_Dong DATE = DATEADD(DAY,-270,@Today);
+DECLARE @KH_Mo  DATE = DATEADD(DAY,-150,@Today), @KH_Dong  DATE = DATEADD(DAY,-130,@Today);
 DECLARE @UT_Mo  DATE = DATEADD(DAY,-60, @Today), @UT_Dong  DATE = DATEADD(DAY,-46, @Today);  -- 14 ngày = TS1
 DECLARE @DT_Mo  DATE = DATEADD(DAY,-45, @Today), @DT_Dong  DATE = DATEADD(DAY, 30, @Today);
-DECLARE @KH_Mo  DATE = DATEADD(DAY,-200,@Today), @KH_Dong  DATE = DATEADD(DAY,-185,@Today);
 DECLARE @DT2_Mo DATE = DATEADD(DAY, 60, @Today), @DT2_Dong DATE = DATEADD(DAY, 90, @Today);
 
--- Hợp đồng: nhóm "đã ở lâu" sắp hết hạn (còn ~27 ngày, trong TS13=30 -> ĐƯỢC gia hạn)
--- và nhóm "mới dọn vào" còn xa hạn (~130 ngày -> BỊ CHẶN gia hạn) để demo rõ 2 trạng thái.
-DECLARE @BD_Lau DATE = DATEADD(DAY,-125,@Today);
-DECLARE @KT_Lau DATE = DATEADD(MONTH,5,@BD_Lau);
-DECLARE @BD_Moi DATE = DATEADD(DAY,-20, @Today);
-DECLARE @KT_Moi DATE = DATEADD(MONTH,5,@BD_Moi);
-DECLARE @BD_Cho DATE = DATEADD(DAY, 5,  @Today);
-DECLARE @KT_Cho DATE = DATEADD(MONTH,5,@BD_Cho);
-DECLARE @BD_Cu  DATE = DATEADD(DAY,-90, @Today);
-DECLARE @KT_Cu  DATE = DATEADD(DAY,-20, @Today);
+-- Hợp đồng:
+--   Nhóm "ở lâu": đăng ký ở đợt HK2-2025, hợp đồng 5 tháng rồi gia hạn thêm 5 tháng
+--   (khi đợt Học kỳ hè mở) -> hiện còn 27 ngày là hết hạn (trong TS13 = 30 -> ĐƯỢC gia hạn tiếp).
+DECLARE @KT_Lau  DATE = DATEADD(DAY, 27, @Today);
+DECLARE @BD_Lau  DATE = DATEADD(MONTH,-10,@KT_Lau);
+DECLARE @NgayGiaHanLau DATETIME = DATEADD(HOUR, 9, CAST(DATEADD(DAY,-140,@Today) AS DATETIME));
+--   Nhóm "mới dọn vào" (đợt đại trà HK1): còn khoảng 130 ngày -> BỊ CHẶN gia hạn (TS13).
+DECLARE @BD_Moi  DATE = DATEADD(DAY,-20, @Today);
+DECLARE @KT_Moi  DATE = DATEADD(MONTH,5,@BD_Moi);
+--   Phiếu chờ đối chiếu: vừa đăng ký 2 ngày trước (ứng dụng đặt NgayBatDau = ngày đăng ký).
+DECLARE @BD_Cho  DATE = DATEADD(DAY,-2,  @Today);
+DECLARE @KT_Cho  DATE = DATEADD(MONTH,5,@BD_Cho);
+--   Hợp đồng học kỳ hè đã kết thúc và đã trả phòng (TS10 = 2 tháng).
+DECLARE @BD_He   DATE = DATEADD(DAY,-145,@Today);
+DECLARE @KT_He   DATE = DATEADD(MONTH,2,@BD_He);
 
 -- Tham số hệ thống
 INSERT INTO THAMSO (MaThamSo, GiaTri, GhiChu) VALUES
@@ -284,56 +304,68 @@ INSERT INTO THAMSO (MaThamSo, GiaTri, GhiChu) VALUES
 ('TS12','10',N'Ngày cuối trong tháng còn tính tiền phòng nếu dọn vào - dọn vào từ ngày này trở về trước vẫn tính tiền phòng tháng đó, dọn vào sau ngày này được miễn, tính từ tháng kế tiếp'),
 ('TS13','30',N'Số ngày trước khi hợp đồng hết hạn thì sinh viên mới được phép gia hạn (tránh gia hạn chồng chất nhiều lần cùng lúc)');
 
--- Tài khoản (ql03 và 25DH113345 đã ở trạng thái BiKhoa sẵn để demo chức năng Mở khóa của admin).
--- 25DH113345 bị khóa có lý do thật: hóa đơn tháng trước nữa của phòng A1-201 đã quá hạn > TS3=7 ngày (QD05),
--- xem phần HOADON bên dưới. 27DH113351 là tân sinh viên K2027 hoạt động bình thường (dùng cho đợt Ưu tiên).
-INSERT INTO TAIKHOAN (TenDangNhap, MatKhau, Email, SDT, VaiTro, TrangThai) VALUES
-('admin',       @mk, 'admin@ktx.edu.vn',            '0900000001', 'QTV', 'HoatDong'),
-('ql01',        @mk, 'ql01@ktx.edu.vn',             '0900000002', 'QL',  'HoatDong'),
-('ql02',        @mk, 'ql02@ktx.edu.vn',             '0900000003', 'QL',  'HoatDong'),
-('ql03',        @mk, 'ql03@ktx.edu.vn',             '0900000004', 'QL',  'BiKhoa'),
-('24DH113343',  @mk, '24dh113343@st.huflit.edu.vn', '0911000005', 'SV',  'HoatDong'),
-('25DH113344',  @mk, '25dh113344@st.huflit.edu.vn', '0911000003', 'SV',  'HoatDong'),
-('25DH113345',  @mk, '25dh113345@st.huflit.edu.vn', '0911000004', 'SV',  'BiKhoa'),
-('26DH113346',  @mk, '26dh113346@st.huflit.edu.vn', '0911000001', 'SV',  'HoatDong'),
-('26DH113347',  @mk, '26dh113347@st.huflit.edu.vn', '0911000002', 'SV',  'HoatDong'),
-('26DH113349',  @mk, '26dh113349@st.huflit.edu.vn', '0911000006', 'SV',  'HoatDong'),
-('26DH113350',  @mk, '26dh113350@st.huflit.edu.vn', '0911000007', 'SV',  'HoatDong'),
-('27DH113351',  @mk, '27dh113351@st.huflit.edu.vn', '0911000008', 'SV',  'HoatDong');
+DECLARE @TS4  INT = (SELECT CAST(GiaTri AS INT) FROM THAMSO WHERE MaThamSo='TS4');
+DECLARE @TS6  INT = (SELECT CAST(GiaTri AS INT) FROM THAMSO WHERE MaThamSo='TS6');
+DECLARE @TS12 INT = (SELECT CAST(GiaTri AS INT) FROM THAMSO WHERE MaThamSo='TS12');
+
+-- Tài khoản. Chỉ có 3 tài khoản bị khóa và đều có lý do rõ ràng:
+--   ql03      : Quản trị viên khóa thủ công (xem Nhật ký hệ thống).
+--   25DH113345: đang ở A1-102, bị khóa theo QD05 vì hóa đơn tháng trước nữa của phòng quá hạn > TS3 ngày.
+--   25DH113354: từng ở A1-102 (hợp đồng đã kết thúc), cũng đứng tên phòng lúc hóa đơn đó phát sinh
+--               nên bị khóa theo QD05 -> sinh viên bị khóa quyền đăng ký mà KHÔNG có hợp đồng hiệu lực.
+INSERT INTO TAIKHOAN (TenDangNhap, MatKhau, Email, SDT, VaiTro, TrangThai, NgayTao) VALUES
+('admin',       @mk, 'admin@ktx.edu.vn',            '0900000001', 'QTV', 'HoatDong', DATEADD(DAY,-500,GETDATE())),
+('ql01',        @mk, 'ql01@ktx.edu.vn',             '0900000002', 'QL',  'HoatDong', DATEADD(DAY,-500,GETDATE())),
+('ql02',        @mk, 'ql02@ktx.edu.vn',             '0900000003', 'QL',  'HoatDong', DATEADD(DAY,-500,GETDATE())),
+('ql03',        @mk, 'ql03@ktx.edu.vn',             '0900000004', 'QL',  'BiKhoa',   DATEADD(DAY,-400,GETDATE())),
+('24DH113343',  @mk, '24dh113343@st.huflit.edu.vn', '0911000005', 'SV',  'HoatDong', DATEADD(DAY,-320,GETDATE())),
+('25DH113344',  @mk, '25dh113344@st.huflit.edu.vn', '0911000003', 'SV',  'HoatDong', DATEADD(DAY,-320,GETDATE())),
+('25DH113345',  @mk, '25dh113345@st.huflit.edu.vn', '0911000004', 'SV',  'BiKhoa',   DATEADD(DAY,-320,GETDATE())),
+('25DH113352',  @mk, '25dh113352@st.huflit.edu.vn', '0911000009', 'SV',  'HoatDong', DATEADD(DAY,-320,GETDATE())),
+('25DH113354',  @mk, '25dh113354@st.huflit.edu.vn', '0911000011', 'SV',  'BiKhoa',   DATEADD(DAY,-320,GETDATE())),
+('26DH113346',  @mk, '26dh113346@st.huflit.edu.vn', '0911000001', 'SV',  'HoatDong', DATEADD(DAY,-60, GETDATE())),
+('26DH113347',  @mk, '26dh113347@st.huflit.edu.vn', '0911000002', 'SV',  'HoatDong', DATEADD(DAY,-160,GETDATE())),
+('26DH113349',  @mk, '26dh113349@st.huflit.edu.vn', '0911000006', 'SV',  'HoatDong', DATEADD(DAY,-60, GETDATE())),
+('26DH113350',  @mk, '26dh113350@st.huflit.edu.vn', '0911000007', 'SV',  'HoatDong', DATEADD(DAY,-60, GETDATE())),
+('26DH113353',  @mk, '26dh113353@st.huflit.edu.vn', '0911000010', 'SV',  'HoatDong', DATEADD(DAY,-60, GETDATE())),
+('27DH113351',  @mk, '27dh113351@st.huflit.edu.vn', '0911000008', 'SV',  'HoatDong', DATEADD(DAY,-55, GETDATE()));
 
 -- Tòa nhà
 INSERT INTO TOANHA (MaToa, TenToa, DiaChi, SoTang) VALUES
 ('A1', N'Tòa A1', N'Khu A, KTX Đại học', 5),
 ('B1', N'Tòa B1', N'Khu B, KTX Đại học', 4);
 
--- Quản lý (tra MaTK theo TenDangNhap thay vì ghi cứng số ID - tránh sai lệch khi đổi thứ tự INSERT)
+-- Quản lý (tra MaTK theo TenDangNhap thay vì ghi cứng số ID)
 INSERT INTO QUANLY (MaNV, MaTK, HoTen, MaToa) VALUES
 ('NV001', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='ql01'), N'Trần Văn Quản', 'A1'),
 ('NV002', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='ql02'), N'Lê Thị Lý',     'B1'),
 ('NV003', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='ql03'), N'Hồ Văn Khóa',   'B1');   -- tài khoản đang Bị khóa
 
--- Sinh viên (thêm 26DH113349 - diện chính sách đang ở, 26DH113350 - thường mới dọn vào,
--- 27DH113351 - tân sinh viên K2027, hoạt động, chưa có hợp đồng)
+-- Sinh viên
 INSERT INTO SINHVIEN (MSSV, MaTK, HoTen, NgaySinh, GioiTinh, KhoaHoc, DoiTuong) VALUES
 ('24DH113343', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='24DH113343'), N'Đặng Hoàng Minh Phi', '2006-04-07', 'Nam', 'K2024', 'BinhThuong'),
-('25DH113344', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='25DH113344'), N'Võ Quốc Dũng',         '2007-01-10', 'Nam', 'K2025', 'BinhThuong'),
-('25DH113345', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='25DH113345'), N'Trần Thu Cúc',         '2007-11-05', 'Nu',  'K2025', 'BinhThuong'),
-('26DH113346', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113346'), N'Nguyễn Văn An',        '2008-03-15', 'Nam', 'K2026', 'BinhThuong'),
-('26DH113347', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113347'), N'Phạm Thị Bình',        '2008-07-22', 'Nu',  'K2026', 'ChinhSach'),
-('26DH113349', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113349'), N'Ngô Anh Thư',          '2008-02-18', 'Nu',  'K2026', 'ChinhSach'),
-('26DH113350', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113350'), N'Bùi Văn Khoa',         '2008-09-30', 'Nam', 'K2026', 'BinhThuong'),
-('27DH113351', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='27DH113351'), N'Đỗ Thị Hạnh',          '2009-05-12', 'Nu',  'K2027', 'BinhThuong');
+('25DH113344', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='25DH113344'), N'Võ Quốc Dũng',        '2007-01-10', 'Nam', 'K2025', 'BinhThuong'),
+('25DH113345', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='25DH113345'), N'Trần Thu Cúc',        '2007-11-05', 'Nu',  'K2025', 'BinhThuong'),
+('25DH113352', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='25DH113352'), N'Lý Minh Tâm',         '2007-06-21', 'Nam', 'K2025', 'BinhThuong'),
+('25DH113354', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='25DH113354'), N'Phan Đức Lộc',        '2007-08-14', 'Nam', 'K2025', 'BinhThuong'),
+('26DH113346', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113346'), N'Nguyễn Văn An',       '2008-03-15', 'Nam', 'K2026', 'BinhThuong'),
+('26DH113347', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113347'), N'Phạm Thị Bình',       '2008-07-22', 'Nu',  'K2026', 'ChinhSach'),
+('26DH113349', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113349'), N'Ngô Anh Thư',         '2008-02-18', 'Nu',  'K2026', 'ChinhSach'),
+('26DH113350', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113350'), N'Bùi Văn Khoa',        '2008-09-30', 'Nam', 'K2026', 'BinhThuong'),
+('26DH113353', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='26DH113353'), N'Trương Gia Huy',      '2008-12-02', 'Nam', 'K2026', 'BinhThuong'),
+('27DH113351', (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='27DH113351'), N'Đỗ Thị Hạnh',         '2009-05-12', 'Nu',  'K2027', 'BinhThuong');
 
--- Phòng (SoGiuongTrong được TÍNH LẠI tự động phía dưới sau khi có phiếu đăng ký, không ghi cứng)
+-- Phòng (SoGiuongTrong được TÍNH LẠI phía dưới theo trạng thái giường thực tế)
 INSERT INTO PHONG (MaPhong, MaToa, Tang, LoaiPhong, SoGiuong, GiaPhong, TrangThai, SoGiuongTrong) VALUES
-('A1-101', 'A1', 1, '4', 4,  600000, 'HoatDong', 4),
-('A1-201', 'A1', 2, '6', 6,  450000, 'HoatDong', 6),
-('A1-202', 'A1', 2, '6', 6,  450000, 'HoatDong', 6),
-('A1-301', 'A1', 3, '8', 8,  350000, 'HoatDong', 8),
-('B1-101', 'B1', 1, '4', 4,  650000, 'HoatDong', 4),
-('B1-201', 'B1', 2, '8', 8,  350000, 'BaoTri',   8);
+('A1-101', 'A1', 1, '4', 4, 600000, 'HoatDong', 4),   -- để trống hoàn toàn: dùng cho kiểm thử đăng ký
+('A1-102', 'A1', 1, '4', 4, 600000, 'HoatDong', 4),   -- phòng có hóa đơn quá hạn (QD05, QD06)
+('A1-201', 'A1', 2, '6', 6, 450000, 'HoatDong', 6),
+('A1-202', 'A1', 2, '6', 6, 450000, 'HoatDong', 6),
+('A1-301', 'A1', 3, '8', 8, 350000, 'HoatDong', 8),
+('B1-101', 'B1', 1, '4', 4, 650000, 'HoatDong', 4),
+('B1-201', 'B1', 2, '8', 8, 350000, 'BaoTri',   8);   -- cả phòng đang bảo trì
 
--- Giường (tự sinh theo phòng)
+-- Giường (tự sinh theo số giường của phòng)
 INSERT INTO GIUONG (MaGiuong, MaPhong, TrangThai)
 SELECT p.MaPhong + '-G' + CAST(n.So AS VARCHAR), p.MaPhong, 'Trong'
 FROM PHONG p
@@ -343,192 +375,335 @@ JOIN (SELECT 1 So UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
 
 -- Đợt đăng ký
 INSERT INTO DOTDANGKY (TenDot, LoaiDot, HocKy, NgayMo, NgayDong, TrangThai) VALUES
-(N'Ưu tiên Tân sinh viên HK1', 'UuTien', 'HK1-2026',    @UT_Mo,  @UT_Dong,  'DaDong'),
-(N'Đăng ký đại trà HK1',       'DaiTra', 'HK1-2026',    @DT_Mo,  @DT_Dong,  'DangMo'),
-(N'Học kỳ hè',                 'KyHe',   'HKHe-truoc',  @KH_Mo,  @KH_Dong,  'DaDong'),
-(N'Đăng ký đại trà HK2 (dự kiến)', 'DaiTra', 'HK2-2026', @DT2_Mo, @DT2_Dong, 'ChuaMo');
+(N'Đăng ký đại trà HK2-2025',      'DaiTra', 'HK2-2025',  @DTc_Mo, @DTc_Dong, 'DaDong'),
+(N'Học kỳ hè 2026',                'KyHe',   'HKHe-2026', @KH_Mo,  @KH_Dong,  'DaDong'),
+(N'Ưu tiên Tân sinh viên HK1',     'UuTien', 'HK1-2026',  @UT_Mo,  @UT_Dong,  'DaDong'),
+(N'Đăng ký đại trà HK1',           'DaiTra', 'HK1-2026',  @DT_Mo,  @DT_Dong,  'DangMo'),
+(N'Đăng ký đại trà HK2 (dự kiến)', 'DaiTra', 'HK2-2026',  @DT2_Mo, @DT2_Dong, 'ChuaMo');
 
--- Phiếu đăng ký / hợp đồng
+DECLARE @DotCu   INT = (SELECT MaDot FROM DOTDANGKY WHERE HocKy='HK2-2025');
+DECLARE @DotHe   INT = (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='KyHe');
+DECLARE @DotHK1  INT = (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='DaiTra' AND HocKy='HK1-2026');
+
+-- Phiếu đăng ký / hợp đồng (NgayDangKy = NgayBatDau như cách ứng dụng ghi phiếu)
 INSERT INTO PHIEUDANGKY (MSSV, MaGiuong, MaDot, NgayDangKy, NgayBatDau, NgayKetThuc, TrangThai) VALUES
--- Nhóm đã ở lâu (~4 tháng) - còn ~27 ngày là hết hạn -> ĐƯỢC gia hạn (trong TS13=30 ngày)
-('25DH113344', 'A1-201-G1', (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='DaiTra' AND TrangThai='DangMo'), DATEADD(DAY,-130,@Today), @BD_Lau, @KT_Lau, 'DangO'),
-('25DH113345', 'A1-201-G2', (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='DaiTra' AND TrangThai='DangMo'), DATEADD(DAY,-130,@Today), @BD_Lau, @KT_Lau, 'DangO'),
-('24DH113343', 'B1-101-G1', (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='DaiTra' AND TrangThai='DangMo'), DATEADD(DAY,-130,@Today), @BD_Lau, @KT_Lau, 'DangO'),
--- Nhóm mới dọn vào (~20 ngày) - còn ~130 ngày -> BỊ CHẶN gia hạn (demo TS13), gồm 1 SV diện chính sách để đối chứng
-('26DH113349', 'A1-202-G1', (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='DaiTra' AND TrangThai='DangMo'), DATEADD(DAY,-22,@Today), @BD_Moi, @KT_Moi, 'DangO'),
-('26DH113350', 'A1-202-G2', (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='DaiTra' AND TrangThai='DangMo'), DATEADD(DAY,-22,@Today), @BD_Moi, @KT_Moi, 'DangO'),
--- Phiếu chờ đối chiếu (chưa tới ngày bắt đầu ở)
-('26DH113346', 'A1-202-G3', (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='DaiTra' AND TrangThai='DangMo'), GETDATE(), @BD_Cho, @KT_Cho, 'ChoDoiChieu'),
--- Hợp đồng cũ đã trả phòng (diện chính sách, đợt học kỳ hè trước)
-('26DH113347', 'A1-301-G1', (SELECT MaDot FROM DOTDANGKY WHERE LoaiDot='KyHe'), DATEADD(DAY,-95,@Today), @BD_Cu, @KT_Cu, 'DaTraPhong');
+-- Nhóm ở lâu (đã gia hạn 1 lần) - còn 27 ngày -> ĐƯỢC gia hạn
+('25DH113344', 'A1-201-G1', @DotCu,  DATEADD(HOUR,9, CAST(@BD_Lau AS DATETIME)), @BD_Lau, @KT_Lau, 'DangO'),
+('25DH113352', 'A1-201-G3', @DotCu,  DATEADD(HOUR,10,CAST(@BD_Lau AS DATETIME)), @BD_Lau, @KT_Lau, 'DangO'),
+('24DH113343', 'B1-101-G1', @DotCu,  DATEADD(HOUR,14,CAST(@BD_Lau AS DATETIME)), @BD_Lau, @KT_Lau, 'DangO'),
+('25DH113345', 'A1-102-G1', @DotCu,  DATEADD(HOUR,15,CAST(@BD_Lau AS DATETIME)), @BD_Lau, @KT_Lau, 'DangO'),
+-- Đã ở A1-102 cùng 25DH113345 (gia hạn 3 tháng), hợp đồng kết thúc khoảng 1 tháng trước, còn nợ hóa đơn quá hạn
+('25DH113354', 'A1-102-G2', @DotCu,  DATEADD(HOUR,16,CAST(@BD_Lau AS DATETIME)), @BD_Lau, DATEADD(MONTH,8,@BD_Lau), 'DaTraPhong'),
+-- Nhóm mới dọn vào - còn khoảng 130 ngày -> BỊ CHẶN gia hạn (có 1 SV diện chính sách để đối chứng)
+('26DH113349', 'A1-202-G1', @DotHK1, DATEADD(HOUR,9, CAST(@BD_Moi AS DATETIME)), @BD_Moi, @KT_Moi, 'DangO'),
+('26DH113350', 'A1-202-G2', @DotHK1, DATEADD(HOUR,10,CAST(@BD_Moi AS DATETIME)), @BD_Moi, @KT_Moi, 'DangO'),
+('26DH113353', 'A1-202-G5', @DotHK1, DATEADD(HOUR,11,CAST(@BD_Moi AS DATETIME)), @BD_Moi, @KT_Moi, 'DangO'),
+-- Phiếu chờ đối chiếu (đăng ký 2 ngày trước, chưa đến văn phòng nhận phòng)
+('26DH113346', 'A1-202-G3', @DotHK1, DATEADD(HOUR,16,CAST(@BD_Cho AS DATETIME)), @BD_Cho, @KT_Cho, 'ChoDoiChieu'),
+-- Hợp đồng Học kỳ hè đã kết thúc, đã trả phòng (diện chính sách, phòng 8 giường đúng TS9)
+('26DH113347', 'A1-301-G1', @DotHe,  DATEADD(HOUR,9, CAST(@BD_He  AS DATETIME)), @BD_He,  @KT_He,  'DaTraPhong');
 
--- Cập nhật trạng thái giường + số giường trống THEO DỮ LIỆU THỰC TẾ (không ghi cứng số liệu)
-UPDATE g SET TrangThai='DaSuDung'
-FROM GIUONG g
-WHERE g.MaGiuong IN (SELECT MaGiuong FROM PHIEUDANGKY WHERE TrangThai IN ('DangO','ChoDoiChieu'));
+-- Trạng thái giường + số giường trống THEO DỮ LIỆU THỰC TẾ
+UPDATE GIUONG SET TrangThai='DaSuDung'
+WHERE MaGiuong IN (SELECT MaGiuong FROM PHIEUDANGKY WHERE TrangThai IN ('DangO','ChoDoiChieu'));
 
-UPDATE p SET SoGiuongTrong = p.SoGiuong - ISNULL(occ.SoLuong, 0)
-FROM PHONG p
-OUTER APPLY (SELECT COUNT(*) SoLuong FROM GIUONG g WHERE g.MaPhong = p.MaPhong AND g.TrangThai='DaSuDung') occ;
+UPDATE GIUONG SET TrangThai='BaoTri'
+WHERE MaPhong = 'B1-201'        -- cả phòng đang bảo trì
+   OR MaGiuong = 'A1-202-G6';   -- 1 giường hỏng trong phòng đang hoạt động
 
--- Đơn giá điện nước
+UPDATE p SET SoGiuongTrong = (SELECT COUNT(*) FROM GIUONG g WHERE g.MaPhong = p.MaPhong AND g.TrangThai = 'Trong')
+FROM PHONG p;
+
+-- Đơn giá điện nước (biểu giá cũ hết hiệu lực khi có biểu giá mới)
 INSERT INTO DONGIA (GiaDien, GiaNuoc, PhiDichVu, NgayApDung, TrangThai) VALUES
 (2500, 15000, 20000, '2025-09-01', 'HetHieuLuc'),
 (2800, 18000, 20000, '2026-01-01', 'HieuLuc');
 
--- Chỉ số điện nước: 8 tháng lịch sử (đã chốt) + tháng hiện tại (Nhap - chưa lập hóa đơn,
--- sẵn sàng demo "Xem trước/Lập hóa đơn") cho 2 phòng dài hạn A1-201 và B1-101
-;WITH NumsThang AS (
-    SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-    UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8
-),
-PhongDaiHan AS (
-    SELECT MaPhong FROM (VALUES ('A1-201'), ('B1-101')) x(MaPhong)
-)
+/* ---------------------------------------------------------------------
+   Lịch cư trú theo tháng: 8 tháng đã qua (n = 1..8) + tháng hiện tại (n = 0).
+   Dùng để sinh chỉ số điện nước, hóa đơn, thông báo, thanh toán nhất quán.
+   --------------------------------------------------------------------- */
+IF OBJECT_ID('tempdb..#Thang') IS NOT NULL DROP TABLE #Thang;
+IF OBJECT_ID('tempdb..#CuTru') IS NOT NULL DROP TABLE #CuTru;
+IF OBJECT_ID('tempdb..#Tieuthu') IS NOT NULL DROP TABLE #Tieuthu;
+
+CREATE TABLE #Thang (n INT PRIMARY KEY, Thang CHAR(7), DauThang DATE, CuoiThang DATE, NguongTS12 DATE);
+INSERT INTO #Thang (n, Thang, DauThang, CuoiThang, NguongTS12)
+SELECT v.n, FORMAT(x.d, 'MM/yyyy'), x.d, EOMONTH(x.d), DATEFROMPARTS(YEAR(x.d), MONTH(x.d), @TS12)
+FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8)) v(n)
+CROSS APPLY (SELECT DATEFROMPARTS(YEAR(DATEADD(MONTH,-v.n,@Today)), MONTH(DATEADD(MONTH,-v.n,@Today)), 1) AS d) x;
+
+-- Ai ở phòng nào trong từng tháng; TinhTien = 1 nếu dọn vào trước/đúng ngày TS12 (QD18)
+CREATE TABLE #CuTru (MaPhong VARCHAR(10), n INT, MSSV VARCHAR(10), MaPhieu INT, TinhTien INT);
+INSERT INTO #CuTru (MaPhong, n, MSSV, MaPhieu, TinhTien)
+SELECT g.MaPhong, t.n, pd.MSSV, pd.MaPhieu,
+       CASE WHEN pd.NgayBatDau <= t.NguongTS12 THEN 1 ELSE 0 END
+FROM PHIEUDANGKY pd
+JOIN GIUONG g ON g.MaGiuong = pd.MaGiuong
+CROSS JOIN #Thang t
+WHERE pd.TrangThai IN ('DangO','DaTraPhong')
+  AND pd.NgayBatDau  <= t.CuoiThang
+  AND pd.NgayKetThuc >= t.DauThang
+  AND pd.NgayBatDau  <= @Today
+  AND (t.n > 0 OR pd.TrangThai = 'DangO');
+
+-- Lượng tiêu thụ mỗi tháng (phụ thuộc số người ở) + chỉ số gốc của đồng hồ từng phòng
+CREATE TABLE #Tieuthu (MaPhong VARCHAR(10), n INT, Kwh DECIMAL(10,1), M3 DECIMAL(10,1), DienGoc DECIMAL(10,1), NuocGoc DECIMAL(10,1));
+INSERT INTO #Tieuthu (MaPhong, n, Kwh, M3, DienGoc, NuocGoc)
+SELECT c.MaPhong, c.n,
+       45 * COUNT(*) + 20 + ((c.n * 7 + ASCII(RIGHT(c.MaPhong,1))) % 25),
+       5  * COUNT(*) + 2  + ((c.n * 3 + ASCII(RIGHT(c.MaPhong,1))) % 4),
+       CASE c.MaPhong WHEN 'A1-102' THEN 1200 WHEN 'A1-201' THEN 1000 WHEN 'A1-202' THEN 500
+                      WHEN 'A1-301' THEN 300  WHEN 'B1-101' THEN 800  ELSE 100 END,
+       CASE c.MaPhong WHEN 'A1-102' THEN 300  WHEN 'A1-201' THEN 250  WHEN 'A1-202' THEN 120
+                      WHEN 'A1-301' THEN 80   WHEN 'B1-101' THEN 200  ELSE 50 END
+FROM #CuTru c
+GROUP BY c.MaPhong, c.n;
+
+-- Chỉ số điện nước CỘNG DỒN: đầu kỳ = cuối kỳ tháng có chỉ số liền trước.
+-- Tháng hiện tại: B1-101 đã lập hóa đơn nháp (DaChot); các phòng còn lại chưa lập (Nhap) -> demo "Lập hóa đơn".
 INSERT INTO CHISODIENNUOC (MaPhong, Thang, DienDauKy, DienCuoiKy, NuocDauKy, NuocCuoiKy, TrangThai)
-SELECT
-    ph.MaPhong,
-    FORMAT(DATEADD(MONTH, -tn.n, GETDATE()), 'MM/yyyy'),
-    1000.0,
-    1000.0 + 140 + ((tn.n * 7) % 45),
-    250.0,
-    250.0 + 16 + ((tn.n * 3) % 14),
-    CASE WHEN tn.n = 0 THEN 'Nhap' ELSE 'DaChot' END
-FROM PhongDaiHan ph CROSS JOIN NumsThang tn;
+SELECT tt.MaPhong, t.Thang,
+       tt.DienGoc + ISNULL(SUM(tt.Kwh) OVER (PARTITION BY tt.MaPhong ORDER BY tt.n DESC ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0),
+       tt.DienGoc + SUM(tt.Kwh) OVER (PARTITION BY tt.MaPhong ORDER BY tt.n DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+       tt.NuocGoc + ISNULL(SUM(tt.M3) OVER (PARTITION BY tt.MaPhong ORDER BY tt.n DESC ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0),
+       tt.NuocGoc + SUM(tt.M3) OVER (PARTITION BY tt.MaPhong ORDER BY tt.n DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+       CASE WHEN tt.n > 0 OR tt.MaPhong = 'B1-101' THEN 'DaChot' ELSE 'Nhap' END
+FROM #Tieuthu tt
+JOIN #Thang t ON t.n = tt.n;
 
--- Chỉ số điện nước tháng hiện tại cho phòng của nhóm "mới dọn vào" (A1-202) - cũng chưa lập hóa đơn
-INSERT INTO CHISODIENNUOC (MaPhong, Thang, DienDauKy, DienCuoiKy, NuocDauKy, NuocCuoiKy, TrangThai) VALUES
-('A1-202', FORMAT(GETDATE(), 'MM/yyyy'), 500.0, 560.0, 120.0, 130.0, 'Nhap');
-
--- Hóa đơn cho 8 tháng lịch sử đã chốt (tháng hiện tại chưa có hóa đơn - đúng ý đồ demo):
--- tháng gần nhất (n=1) -> ChoThanhToan, hạn còn 2 ngày (trong hạn TS5=3 ngày -> demo banner nhắc nhở QD07),
--- tháng kế (n=2, xa hơn) -> QuaHan (đã quá hạn > TS4=14 ngày, phát sinh vi phạm),
--- các tháng còn lại -> DaThanhToan.
--- Lưu ý thứ tự thời gian: tháng càng xa hiện tại thì ngày phát hành/hạn thanh toán càng phải
--- lùi xa hơn về quá khứ (không được để hóa đơn tháng xa hơn lại có hạn "trẻ" hơn hóa đơn tháng gần).
--- TienPhong giả định sĩ số hiện tại ổn định trong suốt lịch sử để đơn giản hoá dữ liệu mẫu.
-;WITH Nums9 AS (
-    SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-    UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8
-),
-DonGiaHL AS (SELECT TOP 1 MaDonGia, GiaDien, GiaNuoc FROM DONGIA WHERE TrangThai='HieuLuc')
+/* Hóa đơn: phát hành khoảng ngày 2 tháng sau, hạn thanh toán 15 ngày sau khi phát hành.
+   - Tháng gần nhất (n = 1) của A1-201, A1-102, B1-101: Chờ thanh toán, còn 2 ngày đến hạn
+     (trong TS5 = 3 ngày -> sinh viên mở Tổng quan sẽ nhận nhắc nhở QD07).
+   - Tháng n = 2 của A1-102: Quá hạn khoảng 28 ngày (> TS3, > TS4) -> khóa TK + vi phạm.
+   - Tháng hiện tại của B1-101: hóa đơn Nháp (demo Gửi hóa đơn / Hủy hóa đơn nháp).
+   - Còn lại: Đã thanh toán. */
 INSERT INTO HOADON (MaPhong, MaChiSo, MaDonGia, Thang, TienPhong, TienDien, TienNuoc, TongTien, NgayPhatHanh, HanThanhToan, TrangThai)
-SELECT
-    cs.MaPhong, cs.MaChiSo, dg.MaDonGia, cs.Thang,
-    CASE cs.MaPhong WHEN 'A1-201' THEN 920000 ELSE 670000 END,
-    (cs.DienCuoiKy - cs.DienDauKy) * dg.GiaDien,
-    (cs.NuocCuoiKy - cs.NuocDauKy) * dg.GiaNuoc,
-    CASE cs.MaPhong WHEN 'A1-201' THEN 920000 ELSE 670000 END
-        + (cs.DienCuoiKy - cs.DienDauKy) * dg.GiaDien
-        + (cs.NuocCuoiKy - cs.NuocDauKy) * dg.GiaNuoc,
-    CASE WHEN n.n = 1 THEN DATEADD(DAY,-13,GETDATE())
-         WHEN n.n = 2 THEN DATEADD(DAY,-35,GETDATE())
-         ELSE DATEADD(MONTH,-n.n, DATEADD(DAY,-15,GETDATE())) END,
-    CASE WHEN n.n = 1 THEN DATEADD(DAY, 2,GETDATE())   -- trong hạn TS5=3 ngày -> demo ngay banner nhắc nhở (QD07)
-         WHEN n.n = 2 THEN DATEADD(DAY,-20,GETDATE())  -- quá hạn > TS4=14 ngày -> demo vi phạm
-         ELSE DATEADD(MONTH,-n.n, DATEADD(DAY,15,GETDATE())) END,
-    CASE WHEN n.n = 1 THEN 'ChoThanhToan' WHEN n.n = 2 THEN 'QuaHan' ELSE 'DaThanhToan' END
+SELECT cs.MaPhong, cs.MaChiSo, dg.MaDonGia, cs.Thang,
+       p.GiaPhong * ISNULL(sn.SoTinhTien, 0) + dg.PhiDichVu,
+       (cs.DienCuoiKy - cs.DienDauKy) * dg.GiaDien,
+       (cs.NuocCuoiKy - cs.NuocDauKy) * dg.GiaNuoc,
+       p.GiaPhong * ISNULL(sn.SoTinhTien, 0) + dg.PhiDichVu
+         + (cs.DienCuoiKy - cs.DienDauKy) * dg.GiaDien
+         + (cs.NuocCuoiKy - cs.NuocDauKy) * dg.GiaNuoc,
+       ph.NgayPhatHanh,
+       CASE WHEN t.n = 0 THEN DATEADD(DAY, 15, @Today) ELSE CAST(DATEADD(DAY, 15, ph.NgayPhatHanh) AS DATE) END,
+       CASE WHEN t.n = 0 THEN 'Nhap'
+            WHEN t.n = 1 AND cs.MaPhong IN ('A1-201','A1-102','B1-101') THEN 'ChoThanhToan'
+            WHEN t.n = 2 AND cs.MaPhong = 'A1-102' THEN 'QuaHan'
+            ELSE 'DaThanhToan' END
 FROM CHISODIENNUOC cs
-CROSS JOIN DonGiaHL dg
-JOIN Nums9 n ON FORMAT(DATEADD(MONTH, -n.n, GETDATE()), 'MM/yyyy') = cs.Thang
-WHERE cs.TrangThai = 'DaChot' AND cs.MaPhong IN ('A1-201','B1-101');
+JOIN #Thang t ON t.Thang = cs.Thang
+JOIN PHONG p ON p.MaPhong = cs.MaPhong
+OUTER APPLY (SELECT SUM(c.TinhTien) AS SoTinhTien FROM #CuTru c WHERE c.MaPhong = cs.MaPhong AND c.n = t.n) sn
+CROSS APPLY (SELECT TOP 1 d.MaDonGia, d.GiaDien, d.GiaNuoc, d.PhiDichVu FROM DONGIA d
+             ORDER BY CASE WHEN d.NgayApDung <= t.DauThang THEN 0 ELSE 1 END, d.NgayApDung DESC) dg
+CROSS APPLY (SELECT CASE WHEN t.n = 0 THEN NULL
+                         ELSE DATEADD(MONTH, -(t.n - 1), DATEADD(DAY, -13, GETDATE())) END AS NgayPhatHanh) ph
+WHERE cs.TrangThai = 'DaChot';
 
--- Thanh toán cho các hóa đơn đã "Đã thanh toán"
+-- Thanh toán: 1 người ở phòng trong tháng đó thanh toán hộ cả phòng qua chuyển khoản (NganHang),
+-- trong hạn. Riêng hóa đơn tháng n = 5 của A1-102 bị trả trễ 16 ngày, Quản lý thu tiền mặt tại văn phòng.
 INSERT INTO THANHTOAN (MaHD, MSSV, PhuongThuc, SoTien, MaGDCong, ThoiGian, KetQua)
-SELECT
-    h.MaHD,
-    CASE h.MaPhong WHEN 'A1-201' THEN '25DH113344' ELSE '24DH113343' END,
-    CASE h.MaHD % 3 WHEN 0 THEN 'VNPay' WHEN 1 THEN 'MoMo' ELSE 'NganHang' END,
-    h.TongTien,
-    'GD' + CAST(h.MaHD AS VARCHAR) + FORMAT(h.HanThanhToan,'yyyyMMdd'),
-    h.HanThanhToan,
-    'ThanhCong'
+SELECT h.MaHD, nguoi.MSSV, 'NganHang', h.TongTien,
+       CASE WHEN tg.Tre = 1 THEN 'TIENMAT' + FORMAT(tg.ThoiGian, 'yyyyMMddHHmmss') + CAST(h.MaHD AS VARCHAR(10))
+            ELSE 'NGANHANG' + FORMAT(tg.ThoiGian, 'yyyyMMddHHmmss') END,
+       tg.ThoiGian, 'ThanhCong'
 FROM HOADON h
-WHERE h.TrangThai = 'DaThanhToan' AND h.MaPhong IN ('A1-201','B1-101');
+JOIN #Thang t ON t.Thang = h.Thang
+CROSS APPLY (SELECT CASE WHEN h.MaPhong = 'A1-102' AND t.n = 5 THEN 1 ELSE 0 END AS Tre) x
+CROSS APPLY (SELECT x.Tre AS Tre,
+                    CASE WHEN x.Tre = 1 THEN DATEADD(HOUR, 10, CAST(DATEADD(DAY, @TS4 + 2, h.HanThanhToan) AS DATETIME))
+                         WHEN t.n = 1   THEN DATEADD(DAY, 2, h.NgayPhatHanh)
+                         ELSE DATEADD(DAY, 2 + h.MaHD % 9, h.NgayPhatHanh) END AS ThoiGian) tg
+CROSS APPLY (SELECT TOP 1 c.MSSV FROM #CuTru c
+             WHERE c.MaPhong = h.MaPhong AND c.n = t.n
+             ORDER BY ABS(CHECKSUM(c.MSSV, h.MaHD))) nguoi
+WHERE h.TrangThai = 'DaThanhToan';
 
--- Vi phạm: hóa đơn quá hạn > TS4 (14 ngày) của các phòng dài hạn
+-- Vi phạm (QD06, chế tài lũy tiến: lần thứ N = TS6 x N điểm), ghi nhận vào ngày quá hạn thứ TS4 + 1:
+--   lần 1: hóa đơn n = 5 của A1-102 (trả trễ 16 ngày); lần 2: hóa đơn n = 2 của A1-102 (đang quá hạn).
+;WITH DsViPham AS (
+    SELECT c.MSSV, h.MaHD, h.Thang, h.HanThanhToan,
+           ROW_NUMBER() OVER (PARTITION BY c.MSSV ORDER BY h.HanThanhToan) AS LanThu
+    FROM HOADON h
+    JOIN #Thang t ON t.Thang = h.Thang
+    JOIN #CuTru c ON c.MaPhong = h.MaPhong AND c.n = t.n
+    WHERE (h.TrangThai = 'QuaHan' AND DATEDIFF(DAY, h.HanThanhToan, @Today) > @TS4)
+       OR (h.MaPhong = 'A1-102' AND t.n = 5)
+)
 INSERT INTO VIPHAM (MSSV, MaHD, NgayGhiNhan, SoDiem, LyDo)
-SELECT sv.MSSV, h.MaHD, DATEADD(DAY,-5,GETDATE()),
-    CAST((SELECT GiaTri FROM THAMSO WHERE MaThamSo='TS6') AS INT),
-    N'Hóa đơn ' + h.Thang + N' quá hạn thanh toán trên ' + (SELECT GiaTri FROM THAMSO WHERE MaThamSo='TS4') + N' ngày'
-FROM HOADON h
-CROSS APPLY (
-    SELECT '25DH113344' AS MSSV WHERE h.MaPhong='A1-201'
-    UNION ALL SELECT '25DH113345' WHERE h.MaPhong='A1-201'
-    UNION ALL SELECT '24DH113343' WHERE h.MaPhong='B1-101'
-) sv
-WHERE h.TrangThai='QuaHan';
+SELECT MSSV, MaHD, DATEADD(DAY, @TS4 + 1, HanThanhToan), @TS6 * LanThu,
+       N'Hóa đơn ' + Thang + N' quá hạn thanh toán trên ' + CAST(@TS4 AS NVARCHAR(5)) + N' ngày (vi phạm lần ' +
+       CAST(LanThu AS NVARCHAR(5)) + N' - chế tài lũy tiến: ' + CAST(@TS6 * LanThu AS NVARCHAR(5)) + N' điểm)'
+FROM DsViPham;
 
-UPDATE sv SET DiemViPham = vp.SoLan
-FROM SINHVIEN sv
-JOIN (SELECT MSSV, COUNT(*) AS SoLan FROM VIPHAM GROUP BY MSSV) vp ON vp.MSSV = sv.MSSV;
+-- DiemViPham là thuộc tính dẫn xuất = tổng điểm vi phạm (giống sp_CapNhatDiemViPham)
+UPDATE sv SET DiemViPham = ISNULL((SELECT SUM(v.SoDiem) FROM VIPHAM v WHERE v.MSSV = sv.MSSV), 0)
+FROM SINHVIEN sv;
 
 -- Đơn phản hồi / đề xuất / chuyển phòng / trả phòng
+DECLARE @PhieuHe     INT = (SELECT MaPhieu FROM PHIEUDANGKY WHERE MSSV='26DH113347' AND TrangThai='DaTraPhong');
+DECLARE @Phieu113350 INT = (SELECT MaPhieu FROM PHIEUDANGKY WHERE MSSV='26DH113350' AND TrangThai='DangO');
+DECLARE @Phieu113353 INT = (SELECT MaPhieu FROM PHIEUDANGKY WHERE MSSV='26DH113353' AND TrangThai='DangO');
+
 INSERT INTO DONYEUCAU (MSSV, MaNV, MaPhieu, MaGiuongMoi, LoaiDon, TieuDe, NoiDung, MucUuTien, TrangThai, PhanHoi, NgayTao) VALUES
-('25DH113344', 'NV001', NULL, NULL, 'PhanHoi', N'Hỏng bóng đèn phòng A1-201', N'Bóng đèn trần giữa phòng bị chập chờn, xin sửa giúp.', 'Cao', 'DangXuLy', N'Đã tiếp nhận, kỹ thuật sẽ đến trong tuần.', DATEADD(DAY,-14,GETDATE())),
-('25DH113345', NULL,   NULL, NULL, 'DeXuat',  N'Lắp thêm quạt trần', N'Phòng nóng vào buổi trưa, đề xuất lắp thêm 1 quạt trần.', 'TrungBinh', 'ChoXuLy', NULL, DATEADD(DAY,-10,GETDATE())),
-('24DH113343', NULL,   NULL, NULL, 'PhanHoi', N'Vòi nước rò rỉ', N'Vòi nước khu vệ sinh phòng B1-101 bị rò rỉ.', 'TrungBinh', 'ChoXuLy', NULL, DATEADD(DAY,-7,GETDATE())),
-('26DH113350', NULL,
-    (SELECT MaPhieu FROM PHIEUDANGKY WHERE MSSV='26DH113350' AND TrangThai='DangO'),
-    'A1-101-G1', 'ChuyenPhong', N'Xin chuyển sang phòng A1-101',
-    N'Phòng hiện tại khá ồn vào ban đêm, mong được chuyển sang phòng A1-101 còn trống giường.',
-    'TrungBinh', 'ChoXuLy', NULL, DATEADD(DAY,-3,GETDATE())),
-('24DH113343', NULL,
-    (SELECT MaPhieu FROM PHIEUDANGKY WHERE MSSV='24DH113343' AND TrangThai='DangO'),
-    NULL, 'TraPhong', N'Xin trả phòng trước hạn',
-    N'Gia đình chuyển chỗ ở gần trường nên xin được trả phòng sớm trước khi hợp đồng kết thúc.',
-    'Thap', 'ChoXuLy', NULL, DATEADD(DAY,-1,GETDATE()));
+-- Đơn trả phòng đã xử lý của hợp đồng học kỳ hè (QL xác nhận đúng ngày hết hạn hợp đồng)
+('26DH113347', 'NV001', @PhieuHe, NULL, 'TraPhong', N'Yêu cầu trả phòng A1-301',
+    N'Sinh viên yêu cầu trả phòng A1-301 (hợp đồng #' + CAST(@PhieuHe AS NVARCHAR(10)) + N'). Vui lòng đối chiếu và xác nhận.',
+    'Cao', 'DaXuLy', N'Đã xác nhận trả phòng. Cảm ơn bạn đã bàn giao phòng đúng quy định.', DATEADD(DAY,-3, CAST(@KT_He AS DATETIME))),
+-- Phản hồi đã xử lý xong
+('25DH113352', 'NV001', NULL, NULL, 'PhanHoi', N'Wifi tầng 2 tòa A1 chập chờn',
+    N'Wifi khu vực tầng 2 tòa A1 thường xuyên mất kết nối vào buổi tối.', 'TrungBinh', 'DaXuLy',
+    N'Đã thay bộ phát wifi tầng 2, bạn vui lòng kiểm tra lại.', DATEADD(DAY,-30,GETDATE())),
+-- Phản hồi đang xử lý (QL đã nâng mức ưu tiên)
+('25DH113344', 'NV001', NULL, NULL, 'PhanHoi', N'Hỏng bóng đèn phòng A1-201',
+    N'Bóng đèn trần giữa phòng bị chập chờn, xin sửa giúp.', 'Cao', 'DangXuLy',
+    N'Đã tiếp nhận, kỹ thuật sẽ đến trong tuần.', DATEADD(DAY,-14,GETDATE())),
+-- Đề xuất bị từ chối
+('26DH113349', 'NV001', NULL, NULL, 'DeXuat', N'Kéo dài giờ mở phòng tự học',
+    N'Đề xuất mở phòng tự học tới 24h trong mùa thi.', 'Thap', 'TuChoi',
+    N'Phòng tự học mở tới 23h theo nội quy chung, chưa thể kéo dài thêm.', DATEADD(DAY,-12,GETDATE())),
+-- Chờ xử lý
+('25DH113345', NULL, NULL, NULL, 'DeXuat', N'Lắp thêm quạt trần',
+    N'Phòng A1-102 nóng vào buổi trưa, đề xuất lắp thêm 1 quạt trần.', 'TrungBinh', 'ChoXuLy', NULL, DATEADD(DAY,-10,GETDATE())),
+('24DH113343', NULL, NULL, NULL, 'PhanHoi', N'Vòi nước rò rỉ',
+    N'Vòi nước khu vệ sinh phòng B1-101 bị rò rỉ.', 'TrungBinh', 'ChoXuLy', NULL, DATEADD(DAY,-7,GETDATE())),
+-- Đơn chuyển phòng chờ xử lý (đủ điều kiện QD16: ở >= TS11 ngày, phòng không nợ, giường đích còn trống)
+('26DH113350', NULL, @Phieu113350, 'A1-301-G8', 'ChuyenPhong', N'Yêu cầu chuyển phòng A1-202 → A1-301',
+    N'Sinh viên yêu cầu chuyển từ phòng A1-202 sang phòng A1-301 (giường A1-301-G8). Vui lòng đối chiếu và xác nhận.',
+    'Cao', 'ChoXuLy', NULL, DATEADD(DAY,-3,GETDATE())),
+-- Đơn trả phòng chờ xử lý (phòng A1-202 không còn hóa đơn chưa thanh toán)
+('26DH113353', NULL, @Phieu113353, NULL, 'TraPhong', N'Yêu cầu trả phòng A1-202',
+    N'Sinh viên yêu cầu trả phòng A1-202 (hợp đồng #' + CAST(@Phieu113353 AS NVARCHAR(10)) + N'). Vui lòng đối chiếu và xác nhận.',
+    'Cao', 'ChoXuLy', NULL, DATEADD(DAY,-1,GETDATE()));
 
--- Lịch sử thông báo: 1 thông báo/hóa đơn lịch sử gửi cho SV đang ở phòng đó (đủ nhiều dòng để
--- kiểm thử phân trang + bộ lọc mặc định 30 ngày). Chỉ có kênh Email (QD12 chỉ yêu cầu gửi qua
--- email; hệ thống hiện chỉ gửi email thật qua SMTP) và gắn với đúng nghiệp vụ THẬT đang có
--- (gửi hóa đơn hàng tháng) - không tự tạo sẵn thông báo "nhắc nhở" ở đây vì QD07/TS5 được job quét
--- tự sinh khi sinh viên mở trang Tổng quan (banner + email thật), không cần chèn sẵn trong seed data.
+/* Lịch sử thông báo (chỉ kênh Email - QD12), nội dung giống hệt thông báo ứng dụng tự sinh */
+-- 1. Hoàn tất nhận phòng (sp_XacNhanNhanPhong) cho các hợp đồng đã nhận phòng
 INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
-SELECT sv.MSSV, h.MaHD,
-    N'Hóa đơn tháng ' + h.Thang + N' phòng ' + h.MaPhong + N': ' + FORMAT(h.TongTien,'N0') + N'đ. Hạn thanh toán ' + FORMAT(h.HanThanhToan,'dd/MM/yyyy') + N'.',
-    'Email',
-    h.NgayPhatHanh,
-    'ThanhCong'
+SELECT MSSV, NULL,
+       N'Phiếu đăng ký #' + CAST(MaPhieu AS NVARCHAR(10)) + N': đã hoàn tất thủ tục nhận phòng. Chào mừng bạn đến với KTX!',
+       'Email', DATEADD(HOUR, 6, NgayDangKy), 'ThanhCong'
+FROM PHIEUDANGKY WHERE TrangThai IN ('DangO','DaTraPhong');
+
+-- 2. Gia hạn hợp đồng (sp_GiaHan) của nhóm ở lâu, thực hiện khi đợt Học kỳ hè đang mở
+INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
+SELECT MSSV, NULL, N'Hợp đồng #' + CAST(MaPhieu AS NVARCHAR(10)) + N' đã được gia hạn thêm 5 tháng.',
+       'Email', DATEADD(MINUTE, MaPhieu * 7, @NgayGiaHanLau), 'ThanhCong'
+FROM PHIEUDANGKY WHERE TrangThai = 'DangO' AND NgayBatDau = @BD_Lau;
+
+INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
+SELECT MSSV, NULL, N'Hợp đồng #' + CAST(MaPhieu AS NVARCHAR(10)) + N' đã được gia hạn thêm 3 tháng.',
+       'Email', DATEADD(MINUTE, MaPhieu * 7, @NgayGiaHanLau), 'ThanhCong'
+FROM PHIEUDANGKY WHERE MSSV = '25DH113354';
+
+-- 3. Gửi hóa đơn hàng tháng tới từng sinh viên ở phòng trong tháng đó
+INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
+SELECT c.MSSV, h.MaHD,
+       N'Hóa đơn tháng ' + h.Thang + N' phòng ' + h.MaPhong + N': ' + FORMAT(h.TongTien, 'N0', 'vi-VN') +
+       N'đ. Hạn thanh toán ' + FORMAT(h.HanThanhToan, 'dd/MM/yyyy') + N'.',
+       'Email', h.NgayPhatHanh, 'ThanhCong'
 FROM HOADON h
-CROSS APPLY (
-    SELECT '25DH113344' AS MSSV WHERE h.MaPhong='A1-201'
-    UNION ALL SELECT '25DH113345' WHERE h.MaPhong='A1-201'
-    UNION ALL SELECT '24DH113343' WHERE h.MaPhong='B1-101'
-) sv
-WHERE h.MaPhong IN ('A1-201','B1-101');
+JOIN #Thang t ON t.Thang = h.Thang
+JOIN #CuTru c ON c.MaPhong = h.MaPhong AND c.n = t.n
+WHERE h.NgayPhatHanh IS NOT NULL;
 
--- Nhật ký thao tác hệ thống: 30 dòng mẫu trải dài ~87 ngày (đủ để kiểm thử phân trang và
--- bộ lọc mặc định "30 ngày gần nhất") xoay vòng đủ 5 loại hành động Thêm/Sửa/Xóa/Khóa/Mở khóa
-;WITH NumsNK AS (
-    SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-    UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
-    UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14
-    UNION ALL SELECT 15 UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18 UNION ALL SELECT 19
-    UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24
-    UNION ALL SELECT 25 UNION ALL SELECT 26 UNION ALL SELECT 27 UNION ALL SELECT 28 UNION ALL SELECT 29
-)
+-- 4. Nhắc nhở lần hai (QD07) cho hóa đơn chưa trả khi còn TS5 = 3 ngày đến hạn.
+--    Hóa đơn đang Chờ thanh toán (n = 1) KHÔNG chèn sẵn: job sẽ tự gửi khi sinh viên mở Tổng quan.
+INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
+SELECT c.MSSV, h.MaHD,
+       N'Nhắc nhở thanh toán: Hóa đơn tháng ' + h.Thang + N' phòng ' + h.MaPhong + N' (' + FORMAT(h.TongTien, 'N0', 'vi-VN') +
+       N'đ) còn 3 ngày nữa là đến hạn (' + FORMAT(h.HanThanhToan, 'dd/MM/yyyy') +
+       N'). Vui lòng thanh toán sớm để tránh bị khóa quyền dịch vụ hoặc ghi vi phạm.',
+       'Email', DATEADD(HOUR, 8, CAST(DATEADD(DAY, -3, h.HanThanhToan) AS DATETIME)), 'ThanhCong'
+FROM HOADON h
+JOIN #Thang t ON t.Thang = h.Thang
+JOIN #CuTru c ON c.MaPhong = h.MaPhong AND c.n = t.n
+WHERE h.TrangThai = 'QuaHan'
+   OR EXISTS (SELECT 1 FROM THANHTOAN tt WHERE tt.MaHD = h.MaHD
+              AND tt.ThoiGian > DATEADD(DAY, -3, CAST(h.HanThanhToan AS DATETIME)));
+
+-- 5. Thanh toán thành công (sp_ThanhToan) - gửi cho người thanh toán
+INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
+SELECT tt.MSSV, tt.MaHD,
+       CASE WHEN tt.MaGDCong LIKE 'TIENMAT%'
+            THEN N'Quản lý đã xác nhận thu tiền mặt hóa đơn #' + CAST(tt.MaHD AS NVARCHAR(10)) + N' tại văn phòng.'
+            ELSE N'Thanh toán hóa đơn #' + CAST(tt.MaHD AS NVARCHAR(10)) + N' thành công qua NganHang. Mã giao dịch: ' + tt.MaGDCong + N'.' END,
+       'Email', tt.ThoiGian, 'ThanhCong'
+FROM THANHTOAN tt;
+
+-- 6. Mở khóa tài khoản (sp_MoKhoa) cho các sinh viên của phòng sau khi Quản lý thu tiền hóa đơn trả trễ
+INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
+SELECT c.MSSV, NULL, N'Tài khoản của bạn đã được mở khóa.', 'Email', DATEADD(MINUTE, 1, tt.ThoiGian), 'ThanhCong'
+FROM THANHTOAN tt
+JOIN HOADON h ON h.MaHD = tt.MaHD
+JOIN #Thang t ON t.Thang = h.Thang
+JOIN #CuTru c ON c.MaPhong = h.MaPhong AND c.n = t.n
+WHERE tt.MaGDCong LIKE 'TIENMAT%';
+
+-- 7. Xử lý đơn (sp_XuLyDon) và xác nhận trả phòng (sp_XacNhanTraPhong)
+INSERT INTO THONGBAO (MSSV, MaHD, NoiDung, Kenh, ThoiGianGui, TrangThaiGui)
+SELECT d.MSSV, NULL,
+       CASE WHEN d.LoaiDon = 'TraPhong'
+            THEN N'Yêu cầu trả phòng #' + CAST(d.MaDon AS NVARCHAR(10)) + N' đã được xác nhận. Phòng đã được giải phóng.'
+            ELSE N'Đơn #' + CAST(d.MaDon AS NVARCHAR(10)) + N' của bạn đã được cập nhật trạng thái: ' + d.TrangThai +
+                 CASE WHEN d.PhanHoi IS NULL THEN N'' ELSE N' Phản hồi: ' + d.PhanHoi END END,
+       'Email',
+       CASE WHEN d.LoaiDon = 'TraPhong' THEN CAST(@KT_He AS DATETIME) ELSE DATEADD(DAY, 1, d.NgayTao) END,
+       'ThanhCong'
+FROM DONYEUCAU d
+WHERE d.TrangThai <> 'ChoXuLy';
+
+/* Nhật ký thao tác hệ thống - các thao tác của Quản trị viên khớp với dữ liệu ở trên,
+   trải dài nhiều tháng (đủ để kiểm thử phân trang và bộ lọc mặc định "30 ngày gần nhất"). */
+DECLARE @MaTKAdmin INT = (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin');
 INSERT INTO NHATKY (MaTK, HoTenNguoiThucHien, VaiTro, HanhDong, DoiTuong, NoiDung, ThoiGian)
-SELECT
-    (SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'),
-    N'Quản trị viên', 'QTV',
-    CASE n % 5 WHEN 0 THEN 'Them' WHEN 1 THEN 'Sua' WHEN 2 THEN 'Xoa' WHEN 3 THEN 'Khoa' ELSE 'MoKhoa' END,
-    CASE n % 4 WHEN 0 THEN N'Phòng' WHEN 1 THEN N'Tài khoản' WHEN 2 THEN N'Đơn giá điện/nước' ELSE N'Đợt đăng ký' END,
-    N'Thao tác mẫu #' + CAST(n AS NVARCHAR(10)) + N' để kiểm thử phân trang và bộ lọc thời gian của Nhật ký hệ thống.',
-    DATEADD(DAY, -(n*3), GETDATE())
-FROM NumsNK;
+SELECT @MaTKAdmin, N'Quản trị viên', 'QTV', v.HanhDong, v.DoiTuong, v.NoiDung,
+       DATEADD(MINUTE, v.Phut, CAST(DATEADD(DAY, -v.SoNgay, @Today) AS DATETIME))
+FROM (VALUES
+    (500, 480, 'Them',   N'Tài khoản',         N'Tạo tài khoản quản lý ql01, ql02 và quản trị hệ thống.'),
+    (400, 500, 'Them',   N'Tài khoản',         N'Tạo tài khoản quản lý ql03 phụ trách tòa B1.'),
+    (330, 540, 'Them',   N'Phòng',             N'Thêm phòng A1-102 (4 giường) vào tòa A1.'),
+    (320, 600, 'Them',   N'Tài khoản',         N'Tạo tài khoản sinh viên 24DH113343, 25DH113344, 25DH113345, 25DH113352, 25DH113354.'),
+    (301, 480, 'Them',   N'Đợt đăng ký',       N'Tạo đợt "Đăng ký đại trà HK2-2025".'),
+    (270, 1020,'Sua',    N'Đợt đăng ký',       N'Đóng đợt "Đăng ký đại trà HK2-2025".'),
+    (250, 600, 'Xoa',    N'Tài khoản',         N'Xóa tài khoản thử nghiệm sv_test01 tạo nhầm.'),
+    (160, 540, 'Them',   N'Tài khoản',         N'Tạo tài khoản sinh viên 26DH113347.'),
+    (151, 480, 'Them',   N'Đợt đăng ký',       N'Tạo đợt "Học kỳ hè 2026" (thời hạn lưu trú TS10 = 2 tháng).'),
+    (149, 600, 'Xoa',    N'Đợt đăng ký',       N'Xóa đợt đăng ký tạo trùng "Học kỳ hè 2026 (bản nháp)".'),
+    (130, 1020,'Sua',    N'Đợt đăng ký',       N'Đóng đợt "Học kỳ hè 2026".'),
+    (95,  540, 'Khoa',   N'Tài khoản',         N'Khóa tài khoản quản lý ql02 do đăng nhập bất thường - chờ xác minh.'),
+    (93,  600, 'MoKhoa', N'Tài khoản',         N'Mở khóa tài khoản quản lý ql02 sau khi xác minh.'),
+    (75,  480, 'Them',   N'Đợt đăng ký',       N'Tạo đợt "Ưu tiên Tân sinh viên HK1" (TS1 = 14 ngày).'),
+    (61,  480, 'Them',   N'Đợt đăng ký',       N'Tạo đợt "Đăng ký đại trà HK1".'),
+    (60,  540, 'Them',   N'Tài khoản',         N'Tạo tài khoản sinh viên 26DH113346, 26DH113349, 26DH113350, 26DH113353.'),
+    (55,  540, 'Them',   N'Tài khoản',         N'Tạo tài khoản tân sinh viên 27DH113351.'),
+    (46,  1020,'Sua',    N'Đợt đăng ký',       N'Đóng đợt "Ưu tiên Tân sinh viên HK1".'),
+    (40,  600, 'Them',   N'Đợt đăng ký',       N'Tạo đợt "Đăng ký đại trà HK2 (dự kiến)".'),
+    (35,  660, 'Sua',    N'Tài khoản',         N'Cập nhật số điện thoại tài khoản ql02.'),
+    (28,  540, 'Sua',    N'Phòng',             N'Chuyển phòng B1-201 sang trạng thái Bảo trì (sửa hệ thống điện).'),
+    (21,  600, 'Sua',    N'Tài khoản',         N'Cập nhật họ tên hiển thị của quản lý NV002.'),
+    (15,  540, 'Sua',    N'Đợt đăng ký',       N'Cập nhật hạn đóng cổng đợt "Đăng ký đại trà HK1".'),
+    (9,   600, 'Sua',    N'Tài khoản',         N'Cập nhật email liên hệ tài khoản ql01.'),
+    (6,   660, 'Sua',    N'Phòng',             N'Chuyển giường A1-202-G6 sang trạng thái Bảo trì (hỏng khung giường).'),
+    (4,   540, 'Khoa',   N'Tài khoản',         N'Khóa tài khoản quản lý ql03 do vi phạm quy trình xử lý đơn từ - chờ xác minh.'),
+    (2,   600, 'Sua',    N'Tài khoản',         N'Đặt lại mật khẩu mặc định cho tài khoản 26DH113346 theo yêu cầu.'),
+    (1,   540, 'Sua',    N'Đợt đăng ký',       N'Kiểm tra cấu hình cổng đăng ký đợt "Đăng ký đại trà HK2 (dự kiến)".')
+) v(SoNgay, Phut, HanhDong, DoiTuong, NoiDung);
 
--- Vài dòng nhật ký "thật" gắn với đúng tình huống trong dữ liệu mẫu (tài khoản đang bị khóa ở trên)
 INSERT INTO NHATKY (MaTK, HoTenNguoiThucHien, VaiTro, HanhDong, DoiTuong, NoiDung, ThoiGian) VALUES
-((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Khoa', N'Tài khoản', N'Khóa tài khoản quản lý ql03 do vi phạm quy trình xử lý đơn từ - chờ xác minh.', DATEADD(DAY,-4,GETDATE())),
-((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Khoa', N'Tài khoản', N'Khóa quyền đăng ký dịch vụ của sinh viên 25DH113345 do hóa đơn phòng A1-201 quá hạn thanh toán trên 7 ngày (QD05).', DATEADD(DAY,-2,GETDATE())),
-((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Sua', N'Đơn giá điện/nước', N'Cập nhật biểu giá điện/nước áp dụng từ 01/01/2026.', DATEADD(DAY,-40,GETDATE())),
-((SELECT MaTK FROM TAIKHOAN WHERE TenDangNhap='admin'), N'Quản trị viên', 'QTV', 'Them', N'Phòng', N'Thêm phòng A1-301 (8 giường) vào tòa A1.', DATEADD(DAY,-50,GETDATE()));
+(@MaTKAdmin, N'Quản trị viên', 'QTV', 'Them', N'Đơn giá điện/nước', N'Thêm biểu giá điện/nước 2.500đ/kWh, 15.000đ/m³, phí dịch vụ 20.000đ, áp dụng từ 01/09/2025.', '20250825 09:00'),
+(@MaTKAdmin, N'Quản trị viên', 'QTV', 'Sua',  N'Đơn giá điện/nước', N'Cập nhật biểu giá điện/nước 2.800đ/kWh, 18.000đ/m³, áp dụng từ 01/01/2026.', '20251226 09:00');
+
+DROP TABLE #Tieuthu;
+DROP TABLE #CuTru;
+DROP TABLE #Thang;
 GO
 
 PRINT N'>>> Tạo CSDL DormManager thành công! Mật khẩu mọi tài khoản: 123456';
-PRINT N'>>> QTV: admin';
-PRINT N'>>> QL: ql01, ql02 (hoạt động) | ql03 (đang Bị khóa - demo Mở khóa)';
-PRINT N'>>> SV đang ở: 25DH113344, 24DH113343 (sắp hết hạn - được Gia hạn) | 25DH113345 (đang Bị khóa do hóa đơn quá hạn - demo Mở khóa) | 26DH113349 (chính sách), 26DH113350 (thường) (mới ở - Gia hạn bị chặn)';
-PRINT N'>>> SV khác: 26DH113346 (chờ đối chiếu) | 26DH113347 (chính sách, đã trả phòng) | 27DH113351 (tân sinh viên K2027, chưa có hợp đồng)';
+PRINT N'>>> QTV: admin | QL: ql01 (tòa A1), ql02 (tòa B1) | ql03 (Bị khóa thủ công - demo Mở khóa)';
+PRINT N'>>> SV ở lâu, còn 27 ngày (được Gia hạn): 25DH113344, 25DH113352 (A1-201), 24DH113343 (B1-101)';
+PRINT N'>>> SV bị khóa theo QD05 + 3 điểm vi phạm: 25DH113345 (đang ở A1-102), 25DH113354 (đã hết hợp đồng, còn nợ hóa đơn A1-102)';
+PRINT N'>>> SV mới ở (Gia hạn bị chặn): 26DH113349 (chính sách), 26DH113350 (có đơn chuyển phòng), 26DH113353 (có đơn trả phòng) - A1-202';
+PRINT N'>>> SV khác: 26DH113346 (chờ đối chiếu) | 26DH113347 (chính sách, đã trả phòng) | 27DH113351 (tân sinh viên, chưa có hợp đồng)';
 GO
